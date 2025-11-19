@@ -1,0 +1,26 @@
+{
+  "title": "Guides",
+  "icon": "MyIcon",
+  "pages": [
+    "env",
+    "fetching-data",
+    "updating-data",
+    "api-route",
+    "auth",
+    "react",
+    "css",
+    "email",
+    "upload",
+    "recaptcha",
+    "unit-test",
+    "e2e",
+    "log-drain",
+    "storage",
+    "database",
+    "background-jobs",
+    "error",
+    "deploy",
+    "docs"
+  ],
+  "defaultOpen": true
+}

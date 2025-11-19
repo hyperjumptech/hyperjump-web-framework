@@ -1,0 +1,250 @@
+---
+title: React
+---
+
+<Callout type="warn" title="Prerequisite">
+  Before reading this guide, you should be familiar with React. Please read
+  **every single page** in the [React documentation](https://react.dev).
+</Callout>
+
+In this page we lay out some conventions to follow when developing a React application in Hyperjump so that the code is easier to understand and test.
+
+## Do not use useEffect unnecessarily
+
+One of the most common newbie mistakes when using React is to use `useEffect` unnecessarily. There's even a page in React documentation that explains [that you might not need an Effect](https://react.dev/learn/you-might-not-need-an-effect). Please read it thoroughly.
+
+Let's see a bad example:
+
+```tsx title="component.tsx" lineNumbers
+const Component = () => {
+  const [data, setData] = useState<string[]>([]);
+  const [message, setMessage] = useState<string>("");
+
+  useEffect(() => {
+    setMessage(`Hello, ${data.join(", ")}!`);
+  }, [data]);
+
+  const handleClick = () => {
+    fetch("https://api.example.com/data")
+      .then((response) => response.json())
+      .then((data) => {
+        setData(data);
+      });
+  };
+
+  return (
+    <div>
+      <p>{message}</p>
+      <button onClick={handleClick}>Fetch Data</button>
+    </div>
+  );
+};
+```
+
+In that example, the `message` state and the effect to update the message are not necessary (line 3-7). The `message` variable can be computed from the `data` state using a simple expression as follows:
+
+```tsx title="component.tsx" lineNumbers
+const Component = () => {
+  const [data, setData] = useState<string[]>([]);
+
+  const message = `Hello, ${data.join(", ")}!`;
+
+  const handleClick = () => {
+    fetch("https://api.example.com/data")
+      .then((response) => response.json())
+      .then((data) => {
+        setData(data);
+      });
+  };
+
+  return (
+    <div>
+      <p>{message}</p>
+      <button onClick={handleClick}>Fetch Data</button>
+    </div>
+  );
+};
+```
+
+<Callout type="info" title="Rule of thumb">
+  If a "state" can be computed, do not use Effect to update it.
+</Callout>
+
+## Always encapsulate the logic in a custom hooks
+
+If you look at a React component, e.g., the `component.tsx` in the previous example, we can actually see that it has two parts:
+
+- The code that constructs the UI. This is the JSX code that is returned by the component.
+- The logic that is used to update the state and run effects. This is every line of code from the opening curly brace `{` to the `return` statement.
+
+As experience has shown, when we have so many lines of code in the logic part, it is difficult to understand and test. Imagine if we have a component with 100 lines of code in the logic part. It takes more time and effort to even find where the UI part is.
+
+In the example above, we can encapsulate the logic in a custom hook as follows:
+
+```tsx title="use-data.ts" lineNumbers
+const useData = () => {
+  const [data, setData] = useState<string[]>([]);
+
+  const fetchData = useCallback(() => {
+    fetch("https://api.example.com/data")
+      .then((response) => response.json())
+      .then((data) => {
+        setData(data);
+      });
+  }, []);
+
+  const message = useMemo(() => `Hello, ${data.join(", ")}!`, [data]);
+
+  return { data, fetchData, message };
+};
+```
+
+Then we can use the custom hook in the component as follows:
+
+```tsx title="component.tsx" lineNumbers
+const Component = () => {
+  const { data, fetchData, message } = useData();
+
+  return (
+    <div>
+      <p>{message}</p>
+      <button onClick={fetchData}>Fetch Data</button>
+    </div>
+  );
+};
+```
+
+As you can see, the component is now much simpler and easier to understand. The logic is encapsulated in the custom hook and the component is only responsible for the UI. It is also easier to understand the logic. We understand immediately from its name (`useData`) that the custom hook is to fetch the data, and simply return both the data and the message.
+
+<Callout type="info" title="Rule of thumb">
+  A React component **must not** have any `useState` and `useEffect` statements.
+  All the state management and effect handling should be encapsulated in custom
+  hooks.
+</Callout>
+
+## Do not create inline functions as component
+
+Another common mistake that makes a component hard to understand is to create inline functions that return JSX. Let's see a bad example:
+
+```tsx title="tabs.tsx" lineNumbers
+const Tabs = ({ title }: { title: string }) => {
+  const createTab = (label: string) => {
+    return (
+      <div>
+        <p>
+          {title}:{label}
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {createTab("Tab 1")}
+      {createTab("Tab 2")}
+      {createTab("Tab 3")}
+    </div>
+  );
+};
+```
+
+In that example, the `createTab` function pollutes the `Tabs` component. It has nothing to do with the `Tabs` component. Imagine if the function has hundreds of lines of code. It is difficult to understand what it is for.
+
+The `createTab` function is essentially a React functional component since it returns JSX. It's so much better to define it as a separate component as follows:
+
+```tsx title="tab.tsx" lineNumbers
+const Tab = ({ title, label }: { title: string; label: string }) => {
+  return (
+    <div>
+      <p>
+        {title}:{label}
+      </p>
+    </div>
+  );
+};
+```
+
+Then we can use the `Tab` component in the `Component` component as follows:
+
+```tsx title="component.tsx" lineNumbers
+const Component = ({ title }: { title: string }) => {
+  return (
+    <div>
+      <Tab title={title} label="Tab 1" />
+      <Tab title={title} label="Tab 2" />
+      <Tab title={title} label="Tab 3" />
+    </div>
+  );
+};
+```
+
+Now, not only the `Tabs` component is much simpler and easier to understand, but also the `Tab` component is a separate component and it is easier to understand what it is for.
+
+<Callout type="info" title="Rule of thumb">
+  Do not create inline functions that return JSX. Instead, create a named
+  function and use it.
+</Callout>
+
+## Use HOC aggresively
+
+Concretely, a higher-order component (HOC) is a function that takes a component and returns a new component. This is another way to keep the components clean and modular just like the custom hooks.
+
+Let's see a very simple example. Say we have a component that displays a "Logout" button when the user is logged in and a "Login" button when the user is not logged in. Usually, we would write a component like this:
+
+```tsx title="auth-button.tsx" lineNumbers
+const AuthButton = () => {
+  const isLoggedIn = useIsLoggedIn();
+  return (
+    <div>{isLoggedIn ? <button>Logout</button> : <button>Login</button>}</div>
+  );
+};
+```
+
+We already use a custom hook, which is great! But the problem with this approach is that the `AuthButton` component still needs to actively "get" a piece of data (`isLoggedIn` in this example) to correctly render the component. We can make this component ~dumber~ simpler by removing the custom hook call and instead pass the `isLoggedIn` data as a prop to the component.
+
+```tsx title="auth-button.tsx" lineNumbers
+const AuthButton = ({ isLoggedIn }: { isLoggedIn: boolean }) => {
+  return (
+    <div>{isLoggedIn ? <button>Logout</button> : <button>Login</button>}</div>
+  );
+};
+```
+
+Now the `AuthButton` component **only focuses on rendering the buttons conditionally**. But how do we get the `isLoggedIn` data? We can create a higher-order function to do this.
+
+```tsx title="with-auth.tsx" lineNumbers
+import { useIsLoggedIn } from "../hooks/use-is-logged-in";
+import type { ComponentProps } from "react";
+
+export const withAuth = <T extends ComponentProps<"div">>(
+  Component: React.ComponentType<T>
+) => {
+  const WithAuth = (props: T) => {
+    const isLoggedIn = useIsLoggedIn();
+    return <Component {...props} isLoggedIn={isLoggedIn} />;
+  };
+  return WithAuth as React.ComponentType<T>;
+};
+```
+
+Then we can use the `withAuth` higher-order function to wrap the `AuthButton` component as follows:
+
+```tsx title="component.tsx" lineNumbers
+export default withAuth(AuthButton);
+```
+
+The great thing about this approach is that we can now create another new component that needs `isLoggedIn` data as a prop by simply wrapping the component with the `withAuth` higher-order function.
+
+## Ground Rules
+
+|     | Action                                                                                |
+| --- | ------------------------------------------------------------------------------------- |
+| ✅  | Don't use useEffect unnecessarily. Compute the value if possible.                     |
+| ✅  | Always encapsulate the logic in a custom hook.                                        |
+| ✅  | Do not create inline functions that return JSX. Instead, create a separate component. |
+| ✅  | Use HOC to further reduce the complexity of a component.                              |
+
+## Todos
+
+- Search for or create a linter rule to enforce the rule: "A React component **must not** have any `useState` and `useEffect` statements. All the state management and effect handling should be encapsulated in custom hooks." Doc: [React](../guide/react.mdx)
+- Search for or create a linter rule to enforce the rule: "Do not create inline functions that return JSX. Instead, create a separate component." Doc: [React](../guide/react.mdx)

@@ -1,0 +1,315 @@
+---
+title: Fetching Data
+---
+
+This document focuses on different ways of rendering data fetched from a data source in Next.js with a server (not a static export).
+
+## Data fetch on page load
+
+In Next.js Pages router, we prepared the data needed by the components of a page in the `getServerSideProps` or `getStaticProps` function. In the new App Router, the page component, which is a React server component (RSC) by default, can fetch the data it needs by itself. For example, say we have a page that shows the profile of a user and the most recent posts of the user. The page component would look like this:
+
+```tsx title="app/page.tsx" lineNumbers
+const Page = async () => {
+  const user = await getUser();
+  const posts = await getPosts(user.id);
+  return (
+    <div>
+      <Profile user={user} />
+      <Posts posts={posts} />
+    </div>
+  );
+};
+
+export default Page;
+```
+
+### Out of order data fetching
+
+Ever since the introduction of RSC in React and Next.js, we should stop thinking in terms of pages. In the new App Router, we should leverage the power of Server Components instead. **In RSC world, every server component can fetch data it needs by themselves.** In the example above, the `Page` component fetches the both data needed for the page.
+
+But what if the `getPosts` function is slow and takes a long time to execute? The user will have to wait for the `getPosts` function to complete before the page is rendered. For better user experience, we can decide that the posts of the user can be shown later (non-priority) but the profile of the user needs to be shown immediately (priority). This out of order rendering can be achived easily using [React's Suspense](https://react.dev/reference/react/Suspense).
+
+```tsx title="page.tsx" lineNumbers
+const Page = async () => {
+  const user = await getUser();
+  return (
+    <div>
+      <Profile user={user} />
+      <Suspense fallback={<div>Loading...</div>}>
+        <Posts />
+      </Suspense>
+    </div>
+  );
+};
+
+export default Page;
+```
+
+and the `Posts` component is:
+
+```tsx title="posts.tsx" lineNumbers
+const Posts = async () => {
+  const user = await getUser();
+  const posts = await getPosts(user.id);
+  return (
+    <div>
+      {posts.map((post) => (
+        <div key={post.id}>{post.title}</div>
+      ))}
+    </div>
+  );
+};
+```
+
+When the page is requested, Next.js will wait for the `getUser` to complete, then render the page, and send it to the browser. Meanwhile, the `Posts` component will be rendered with a fallback UI. Once the `getPosts` function completes, the `Posts` component will be rendered with the actual data.
+
+To achieve this in the pre-RSC, we would have to write quite a bit of code: create an API route to fetch the posts data and call it from the `Posts` component with fetch + useEffect, or Tanstack Query, or SWR, etc.
+
+<Callout type="info" title="Rule of thumb">
+  Execute and await the data fetching in page component if you need all the data
+  to be available at the same time. Otherwise, use Suspense to prioritize some
+  data fetching over others.
+</Callout>
+
+### Memoization with React's cache
+
+If you notice, the `Page` and `Posts` components are both calling the same `getUser` function. You might think that this is a waste of time and resources. But we can utilize the React's [cache](https://react.dev/reference/react/cache) to memoize the result of the `getUser` function so that it is only called once.
+
+```tsx title="user.tsx" lineNumbers
+import { cache } from "react";
+export const getUser = cache(async () => {
+  const user = await db.user.findUnique({
+    where: {
+      id: "1",
+    },
+  });
+  return user;
+});
+```
+
+<Callout type="info" title="Good to know">
+  React memoizes the result only [during the render
+  phase](https://nextjs.org/docs/app/guides/authentication#creating-a-data-access-layer-dal).
+  This means the cached result is [invalidated for each server
+  request](https://react.dev/reference/react/cache#caveats).
+</Callout>
+
+### Streaming with React's use
+
+[React's use](https://react.dev/reference/react/use) is a a React API that lets you read the value of a resource like a Promise. You can use this API to start a data fetching process in the server and read the value of the resource once it is available in the client. This is what is called data streaming in React.
+
+```tsx title="app/page.tsx" lineNumbers
+const Page = async () => {
+  const user = await getUser();
+  const postsWork = getPosts(user.id); // Note that this is not await-ed
+  return (
+    <div>
+      <Profile user={user} />
+      <Suspense fallback={<div>Loading...</div>}>
+        <Posts work={postsWork} />
+      </Suspense>
+    </div>
+  );
+};
+```
+
+and the `Posts` component is:
+
+```tsx title="posts.tsx" lineNumbers
+import { use } from "react";
+const Posts = async ({ work }: { work: Promise<Post[]> }) => {
+  const posts = use(work);
+  return (
+    <div>
+      {posts.map((post) => (
+        <div key={post.id}>{post.title}</div>
+      ))}
+    </div>
+  );
+};
+```
+
+Generally, prefer async and await over use when fetching data in a Server Component. One example where `use` is useful is when different component needs to know the status of the same data fetching process. For example, we want to display a "Reload" button that re-fetches the posts when clicked with the following behaviours:
+
+- Show the loading indicator while `getPosts` is still in progress.
+- Show the "Reload" button when `getPosts` is completed and **there are no posts**.
+- Hide the "Reload" button when `getPosts` is completed and there are posts because there's no need to reload when there are posts.
+
+To achive this, we can initiate the `getPosts` process in the server and pass the promise to the `ReloadPostsButton` and `Posts` components.
+
+```tsx title="app/page.tsx" lineNumbers
+const Page = async () => {
+  const user = await getUser();
+  const postsWork = getPosts(user.id);
+  return (
+    <div>
+      <Profile user={user} />
+      <Suspense fallback={<div>...</div>}>
+        <ReloadPostsButton work={postsWork} />
+      </Suspense>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Posts work={postsWork} />
+      </Suspense>
+    </div>
+  );
+};
+```
+
+The `ReloadPostsButton` component is:
+
+```tsx title="reload-posts-button.tsx" lineNumbers
+const ReloadPostsButton = async ({ work }: { work: Promise<Post[]> }) => {
+  const posts = use(work);
+
+  // There are posts! No need to reload.
+  if (posts) return null;
+  return <button onClick={() => revalidatePath("/")}>Reload</button>;
+};
+```
+
+As you can see, a single `getPosts` function is "awaited" by two components: the `Posts` component and the `ReloadPostsButton` component. As long as the `getPosts` is running, the fallback UI in the Suspense will be shown.
+
+## Data fetch on demand
+
+Sometimes, we don't need to fetch the data on page load. We only need to fetch the data when the user interacts with the page. For example, the posts of a user in the example above are not needed until the user clicks the "Load Posts" button. There are two ways to achieve this: using RSC and Route Handlers (API routes).
+
+### Using RSC
+
+We can use the search params to trigger the fetching and rendering of the `Posts` component like this:
+
+```tsx title="app/page.tsx" lineNumbers
+const Page = async ({
+  searchParams,
+}: {
+  searchParams?: Promise<{ showPosts?: string }>;
+}) => {
+  const user = await getUser();
+  const showPosts = await searchParams?.showPosts;
+  return (
+    <div>
+      <Profile user={user} />
+      {showPosts ? (
+        <Suspense fallback={<div>Loading...</div>}>
+          <div>
+            <Posts />
+            <Link href={`/?showPosts=true`}>Load Posts</Link>
+          </div>
+        </Suspense>
+      ) : null}
+    </div>
+  );
+};
+```
+
+The benefit of this approach is that the state of the `showPosts` is managed by the URL itself. This means that the user can visit the page with `/?showPosts=true` to see the profile and the posts immediately if needed.
+
+Another advantage is how simple it is to implement. You don't need to write any code in the `Posts` component to fetch the data from the browser on user's click. You can just show a simple link to the page with the search param `showPosts=true` to trigger the fetching and rendering of the `Posts` component.
+
+#### Refreshing data
+
+We can also adds another search param `lastRefreshAt` to the URL to refresh the data when the user clicks the "Reload" button.
+
+```tsx title="app/page.tsx" lineNumbers
+const Page = async ({
+  searchParams,
+}: {
+  searchParams?: Promise<{ showPosts?: string; lastRefreshAt?: string }>;
+}) => {
+  const user = await getUser();
+  const query = await searchParams;
+  const showPosts = query?.showPosts;
+  const lastRefreshAt = query?.lastRefreshAt;
+  return (
+    <div>
+      <Profile user={user} />
+      {showPosts ? (
+        <Suspense key={lastRefreshAt} fallback={<div>Loading...</div>}>
+          <div>
+            <Posts />
+            <LoadPostsButton />
+          </div>
+        </Suspense>
+      ) : null}
+    </div>
+  );
+};
+```
+
+And the `LoadPostsButton` component is:
+
+```tsx title="load-posts-button.tsx" lineNumbers
+"use client";
+import { useRouter } from "next/navigation";
+export const LoadPostsButton = () => {
+  const router = useRouter();
+
+  return (
+    <button
+      onClick={() =>
+        router.push(`/?showPosts=true&lastRefreshAt=${Date.now()}`)
+      }
+    >
+      Reload
+    </button>
+  );
+};
+```
+
+The `lastRefreshAt` is used as key for the Suspense component so that the fallback UI is shown again when the `getPosts` function is running again.
+
+### Using Route Handlers (API routes)
+
+While the RSC approach is simple and easy to implement, it has one drawback: the new fresh data replaces the old data. When we need to append the new data to the old data, we need to use Route Handlers (API routes) to return the new data and initiate the data fetching from the client component. For example, we want to display the posts of a user in the `Posts` component and append the new posts to the old posts when the user clicks the "Load More" button.
+
+```tsx title="app/posts.tsx" lineNumbers
+"use client";
+const Posts = async ({ userId }: { userId: string }) => {
+  const [posts, page, pageSize, total, isLoading, fetchPosts] =
+    usePostsData(userId);
+  return (
+    <div>
+      {posts.map((post) => (
+        <div key={post.id}>{post.title}</div>
+      ))}
+      <button onClick={() => fetchPosts(page + 1)} disabled={isLoading}>
+        {isLoading ? "Loading..." : "Load More"}
+      </button>
+    </div>
+  );
+};
+```
+
+And the Route Handler is:
+
+```tsx title="app/api/posts.ts" lineNumbers
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get("userId");
+  const page = searchParams.get("page");
+  const pageSize = searchParams.get("pageSize");
+  const total = searchParams.get("total");
+
+  // Get the posts from the database
+  const posts = await getPosts(userId, page, pageSize);
+
+  // Return the posts
+  return NextResponse.json({ posts, page, pageSize, total });
+}
+```
+
+<Callout type="warn" title="Warning">
+  The route handler above is simplified for the sake of the example. Please
+  refer to the [API Routes](./api-route.mdx) guide for more details on how to
+  correctly create a route handler.
+</Callout>
+
+## Ground Rules
+
+|     | Action                                                                           |
+| --- | -------------------------------------------------------------------------------- |
+| ✅  | Use RSC for data fetching on page load.                                          |
+| ✅  | Use Suspense for prioritizing data fetching on page load.                        |
+| ✅  | Use React's cache for memoization.                                               |
+| ✅  | Use React's use for data streaming when async and await is not possible.         |
+| ✅  | Use search params to trigger data fetching on demand.                            |
+| ✅  | Use Route Handlers (API routes) to load and append the new data to the old data. |

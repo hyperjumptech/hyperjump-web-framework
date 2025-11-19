@@ -1,0 +1,138 @@
+---
+title: Project Overview
+---
+
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+This project is a monorepo that uses [Turborepo](https://turbo.build/repo/docs) and [pnpm](https://pnpm.io) to manage the dependencies and build the project.
+
+## Project Structure
+
+The project structure is as follows:
+
+<Files>
+  <Folder name="my-project" defaultOpen>
+    <Folder name="apps" defaultOpen>
+      <Folder name="web">
+        <File name="index.tsx" />
+      </Folder>
+    </Folder>
+    <Folder name="docs" defaultOpen>
+      <Folder name="docs" defaultOpen>
+        <File name="index.mdx" />
+        <File name="meta.json" />
+      </Folder>
+      <File name="config.json" />
+    </Folder>
+    <Folder name="packages" defaultOpen>
+    <Folder name="env" />
+      <Folder name="ui" />
+      <Folder name="eslint-config" />
+      <Folder name="typescript-config" />
+    </Folder>
+
+  </Folder>
+</Files>
+
+- The `apps` directory contains the apps of the project. It includes the website, the web app, cli, etc. Basically the projects in the `app` directory are the projects that will not be imported by other projects.
+- The `packages` directory contains the shared libraries and components of the project. The projects in the `packages` directory are the projects that will be imported by other projects.
+- The `docs` directory contains the documentation files of the project following the convention of [Speed Docs](https://speed-docs.dev).
+
+## Using shared package
+
+To use a shared package in an app, you need to add the package as a dependency in the `package.json` file.
+
+```json title="package.json"
+{
+  "dependencies": {
+    "@workspace/env": "workspace:*"
+  }
+}
+```
+
+The `@workspace/env` key must match with the name of the package you want to use, which is the value of the `name` field in the `package.json` file of the package. The value `workspace:*` means that the package is a shared package and is located in the `packages` directory.
+
+<Callout type="info" title="Good to know">
+  When you add or remove a shared package, you need to run the `pnpm install`
+  command from the root of the monorepo to install the dependencies of the
+  package.
+</Callout>
+
+## Same version dependencies
+
+Most of the time, you will want to use the same version of the dependencies for all the apps and packages in the monorepo. You can do this by adding the dependencies to the `catalog` section in the `pnpm-workspace.yaml` file. Then use the catalog name as the version in the `package.json` file.
+
+```yaml title="pnpm-workspace.yaml"
+catalog:
+  zod: "^3"
+```
+
+```json title="package.json"
+{
+  "dependencies": {
+    "zod": "catalog:"
+  }
+}
+```
+
+## Running tasks for a specific app or package
+
+You can run the tasks for a specific app or package by running the following command from the root of the monorepo:
+
+```bash
+pnpm turbo <task> --filter=<app-or-package>
+```
+
+For example, to run the `build` task only for the `web` app, you can run the following command from the root of the monorepo:
+
+```bash
+pnpm turbo build --filter=web
+```
+
+Or if you have a `build` script in the root `package.json` file like this:
+
+```json title="package.json"
+{
+  "scripts": {
+    "build": "turbo build"
+  }
+}
+```
+
+You can run the `build` task by running the following command from the root of the monorepo:
+
+```bash
+pnpm build --filter=web
+```
+
+There is a difference between running the `build` from the root of the monorepo and from the `web` app directory. The first one will run the task for the `web` app defined in `turbo.json` file, while the second one will run the `build` script defined in the `package.json` file of the `web` app.
+
+If you look at the `turbo.json` file, you will see that the `build` task is defined as follows:
+
+```json title="turbo.json"
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"]
+    }
+  }
+}
+```
+
+The `^build` means that the `build` task will run the `build` script of the dependencies of the `web` app first. In this template, the local dependencies of the `web` app that has the `build` script is the `@workspace/env`. So the `build` task will run the `build` script of the `@workspace/env` package first.
+
+<Callout type="info" title="Good to know">
+  Pay attention to the difference between a task and a script. A task is defined
+  in the `turbo.json` file, while a script is defined in the `package.json`
+  file.
+</Callout>
+
+## Ground Rules
+
+|     | Action                                                                                                       |
+| --- | ------------------------------------------------------------------------------------------------------------ |
+| ✅  | Use the `apps` directory for the apps of the project.                                                        |
+| ✅  | Use the `packages` directory for the shared libraries and components of the project.                         |
+| ✅  | Use the `docs` directory for the documentation files of the project.                                         |
+| ✅  | File and folder names must be in [kebab-case](https://developer.mozilla.org/en-US/docs/Glossary/Kebab_case). |
+| ✅  | Run the build task from the root of the repository.                                                          |

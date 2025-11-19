@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+catalog:
+  "@tailwindcss/postcss": "^4.1.11"
+  "@types/node": "^20.19.9"
+  "@types/react": "^19.1.9"
+  "@types/react-dom": "^19.1.7"
+  "eslint": "^9.32.0"
+  "typescript": "^5.9.2"
+  "postcss": "^8.4.35"
+  "zod": "^3"
+  "@turbo/gen": "^2.6.1"
+  "tailwindcss": "^4.1.11"
