@@ -1,0 +1,103 @@
+---
+title: Updating Data
+---
+
+Updating data in this document refers to all of the following processes:
+
+1. user initiates the update action (e.g., clicking a button)
+2. the data in the backend is updated
+3. the updated data is reflected in the frontend
+
+The last part is important because there is some cases where data mutation does not need to be reflected in the frontend. For example, we may track the product pages that the user has visited. Technically, the user's data is updated, but we don't need to reflect it in the frontend.
+
+## Before Server Functions
+
+Ever since the introduction of Server Functions in React and Next.js, we should stop thinking of using route handler to update data. When using a route handler (API route), we need to
+
+1. create the route handler file (e.g., `app/api/posts/[postId]/route.ts`). In the handler, we need to make sure to validate the incoming request.
+2. call the end point using fetch from the client component.
+3. handle the response in the client component.
+
+Step 2 and 3 above are prone to errors because we need to make sure that:
+
+1. the URL of the end point is correct when calling the end point from the client component. A minor typo in the URL can cause the request to fail.
+2. the request body needs to correctly contains the data that the server expects. A missing or incorrect field in the request body can cause the request to fail.
+3. the response from the server is correctly validated. Difference in what the client code expects and what the server returns can cause the request to fail.
+
+This vulnerability happens because communication between the client and the server via fetch and route handler is by default not strongly typed.
+
+## Server Functions
+
+With Server Functions, we can simply create a strongly typed function and directly call it from the client component. React and Next.js handle the heavy lifting of actually calling the server function and handling the response in the background.
+
+For example, we have a component that allows the user to toggle the favorite status of a post. We can create a server function to handle the toggle action.
+
+```tsx title="toggle-favorite.server.ts" lineNumbers
+"use server";
+
+export const toggleFavorite = async (postId: string) => {
+  const user = await getUser();
+  const post = await db.post.findUnique({
+    where: { id: postId, userId: user.id },
+  });
+  if (!post) {
+    return {
+      ok: 0,
+      error: "Post not found",
+    };
+  }
+  await db.post.update({
+    where: { id: postId, userId: user.id },
+    data: {
+      isFavorite: !post.isFavorite,
+    },
+  });
+
+  return {
+    ok: 1,
+    message: "Post toggled successfully",
+  };
+};
+```
+
+Then we can call the server function from the client component like this:
+
+```tsx title="toggle-favorite.client.ts" lineNumbers
+"use client";
+import { useTransition } from "react";
+import { toast } from "sonner";
+import { toggleFavorite } from "./toggle-favorite.server";
+
+export const ToggleFavorite = ({ postId }: { postId: string }) => {
+  const [isPending, startTransition] = useTransition();
+
+  const handleToggle = async () => {
+    startTransition(async () => {
+      const result = await toggleFavorite(postId);
+      if (result.ok === 1) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
+
+  return (
+    <div>
+      <button onClick={handleToggle} disabled={isLoading}>
+        {isLoading ? "Loading..." : "Toggle Favorite"}
+      </button>
+    </div>
+    {error && <div>{error}</div>}
+    {message && <div>{message}</div>}
+  );
+};
+```
+
+<Callout type="info" title="Good to know">
+  The file that contains the server function should have the `"use server"`
+  directive at the top which causes every exported function in the file will be
+  callable from the client component.
+</Callout>
+
+As you can see, both the client and the server sides are strongly typed. The server function's input and output are known to the client component. This means that the client code we write won't have missing or incorrect fields when sending the request to the server. We can also be sure that the reseponse handling code in the client component won't have any unexpected fields. If the input or output is changed in the server function, the client code will not compile.

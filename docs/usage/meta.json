@@ -1,0 +1,5 @@
+{
+  "title": "Getting Started",
+  "icon": "MyIcon",
+  "pages": ["install", "project-structure"]
+}

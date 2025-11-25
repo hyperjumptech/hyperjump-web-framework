@@ -1,0 +1,69 @@
+---
+title: Principles
+---
+
+Software development is a complex and continuously evolving field. There are many different approaches and methodologies to software development. However, we believe that there are some principles that are universally applicable to all software development projects.
+
+When developing a web project in Hyperjump, we follow these principles.
+
+## Break down complexities
+
+The rule is simple:
+
+- if a function does too many things, it should be split into smaller functions.
+- if a component does too many things, it should be split into smaller components.
+
+Smaller functions and components are easier to understand and test, not only by human developers, but also by AI. They are also easier to refactor.
+
+## Document aggressively
+
+When you write code, you should always think of the next person who will read your code. It could be yourself in the future.
+
+<Callout type="info">
+  Do not assume that the next person will know what you are doing.
+</Callout>
+
+To achieve this, we should:
+
+- Add comments to every function, component, configuration, expression, etc. It is pretty common to add comments on a function or component. But what often gets overlooked is the comments on expressions. For example,
+
+```typescript
+const regex =
+  /^(?:\([2-9]\d{2}\)\ ?|[2-9]\d{2}(?:\-?|\ ?))[2-9]\d{2}[- ]?\d{4}$/;
+const isValid = regex.test(phoneNumber);
+```
+
+In this example, the comment should be added to the regex expression to explain what it is for.
+
+- A function signature must be strongly typed. The next person should not guess what a piece of code does.
+
+## Regression must never happen
+
+There are two types of bugs:
+
+1. a bug in a new feature
+2. a bug in an existing feature, a.k.a. a regression
+
+Ideally, our app must never have a bug. But in reality, bugs happen. The difference between the two types of bugs is that it is more acceptable to have a bug in a new feature. We can call it a work in progress and people will understand.
+
+However, a regression affects existing users that have been using the app for a while. They will not be so generous when the feature that they have been using suddenly stops working. And to avoid this, we must write a lot of tests.
+
+## Automate what can be automated
+
+If a task takes several steps to complete, it should be automated. This can be done using a script, a tool, or a service. For example, if running the tests requires running some commands to setup the environment, it should be automated.
+
+This includes generating code. For example, a script to generate the skeleton code for a route handler, a component, etc.
+
+## Open source mindset
+
+When developing a feature, think of how to open source the feature or even part of the feature. This can be done by creating a library, a package, or a service.
+
+For example, if there's a requirement to retry certain calls to third party API when there's an error, you should not update the implementation of the existing function that calls the third party API. Instead, you should create a new function that wraps the existing function and adds the retry logic. There are two advantages of this approach:
+
+- We don't need to change the implementation of the existing function
+- We can reuse the new function for all other asynchronous operations that need to be retried.
+
+<Callout type="info">
+  The mindset to embrace is: Can I fulfill the requirements without changing the
+  existing implementation?
+</Callout>

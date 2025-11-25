@@ -1,0 +1,6 @@
+{
+  "title": "Introduction",
+  "icon": "MyIcon",
+  "pages": ["motivation", "principles", "stacks", "docs"],
+  "defaultOpen": true
+}
