@@ -231,13 +231,14 @@ import { useIsLoggedIn } from "../hooks/use-is-logged-in";
 import type { ComponentProps } from "react";
 
 export const withAuth = <T extends ComponentProps<"div">>(
-  Component: React.ComponentType<T>
+  Component: React.ComponentType<T & { isLoggedIn: boolean }>
 ) => {
   const WithAuth = (props: T) => {
     const isLoggedIn = useIsLoggedIn();
     return <Component {...props} isLoggedIn={isLoggedIn} />;
   };
-  return WithAuth as React.ComponentType<T>;
+  type WithoutAuthProps = Omit<T, "isLoggedIn">;
+  return WithAuth as React.ComponentType<WithoutAuthProps>;
 };
 ```
 
@@ -384,6 +385,11 @@ export const serverFunction = async (formData: FormData) => {
 ```
 
 As you can see, we just need to make sure that every input field has a `name` attribute so that the server function can extract the value of the input field from the form data.
+
+<Callout type="info" title="Good to know">
+  For more information on using server functions, please refer to the [Updating
+  Data](../guide/updating-data.mdx) guide.
+</Callout>
 
 ### Input validation
 
@@ -661,6 +667,12 @@ Or we can have `Tabs` component with custom styling like for the tabs list and t
 ```
 
 With compound pattern, we have a clear separation of concerns and more flexibility.
+
+<Callout type="info" title="Rule of thumb">
+  Always aim to keep the component simple with minimum responsibility. Use the
+  compound pattern to further break down the component into smaller components
+  that are responsible for a single responsibility.
+</Callout>
 
 ## Ground Rules
 
