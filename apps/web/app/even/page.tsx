@@ -1,10 +1,12 @@
 import { Button } from "@workspace/ui/components/button";
 import { connection } from "next/server";
+import { env } from "@workspace/env";
 
 export default async function Page() {
   await connection();
-  const isEven = process.env.IS_EVEN;
+  const isEven = env.IS_EVEN;
   const shouldRender = isEven?.includes("_yo");
+
   return (
     <div className="flex items-center justify-center min-h-svh">
       <div className="flex flex-col items-center justify-center gap-4">

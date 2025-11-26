@@ -1,5 +1,5 @@
-import { env } from "@workspace/env";
 import ClientEnvPage from "./client";
+import { env } from "@workspace/env";
 
 export default function EnvPage() {
   return (
