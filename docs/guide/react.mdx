@@ -93,11 +93,25 @@ const useData = () => {
       });
   }, []);
 
-  const message = useMemo(() => `Hello, ${data.join(", ")}!`, [data]);
+  const message = `Hello, ${data.join(", ")}!`;
 
-  return { data, fetchData, message };
+  return useMemo(
+    () => ({ data, fetchData, message }),
+    [data, fetchData, message]
+  );
 };
 ```
+
+<Callout type="info" title="Good to know">
+  The name of the custom hook has to be prefixed with `use`. This will help
+  react's hook linter to lint the custom hooks to follow the [rule of
+  hooks](https://react.dev/reference/rules/rules-of-hooks).
+</Callout>
+
+<Callout type="info" title="Good to know">
+  Once React compiler is stable and available by default in Next.js, we won't
+  need the `useCallback` and `useMemo` anymore.
+</Callout>
 
 Then we can use the custom hook in the component as follows:
 
@@ -235,6 +249,419 @@ export default withAuth(AuthButton);
 
 The great thing about this approach is that we can now create another new component that needs `isLoggedIn` data as a prop by simply wrapping the component with the `withAuth` higher-order function.
 
+## Prevent impossible states
+
+The following is a bad code. Can you tell why?
+
+```tsx title="component.tsx" lineNumbers
+const MyComponent = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  return (
+    <div>
+      {loading && !error && !success && <p>Loading...</p>}
+      {error && !loading && !success && <p>Error occurred</p>}
+      {success && !loading && !error && <p>Operation completed successfully</p>}
+    </div>
+  );
+};
+```
+
+The code above is bad because it doesn't prevent impossible states from happening. For example, `loading` can be true while `success` is true. What we want is actually an exclusive state machine: of all three states, only one can be true at any given time, like this:
+
+```tsx title="component.tsx" lineNumbers
+import { useState } from "react";
+
+type State = "loading" | "error" | "success";
+
+const useStateMachine = () => {
+  const [state, setState] = useState<State>("loading");
+
+  const handleClick = () => {
+    setState("loading");
+    // Simulate an async operation
+    setTimeout(() => {
+      setState("success");
+    }, 2000);
+  };
+
+  return { state, handleClick };
+};
+
+const MyComponent = () => {
+  const { state, handleClick } = useStateMachine();
+
+  return (
+    <div>
+      {state === "loading" && <p>Loading...</p>}
+      {state === "error" && <p>Error occurred</p>}
+      {state === "success" && <p>Operation completed successfully</p>}
+      <button onClick={handleClick}>Click me</button>
+    </div>
+  );
+};
+```
+
+## Controlled and uncontrolled components in a form
+
+It is very common to use a state to store the value of an input in a form like this:
+
+```tsx title="component.tsx" lineNumbers
+const MyComponent = () => {
+  const [value, setValue] = useState("");
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
+  );
+};
+```
+
+Now imagine we have 10 or more inputs in the form. We will have to create 10 or more state variables to store the value of each input. It could get messy quickly.
+
+When your input field has `value` property and `onChange` handler, it becomes a **controlled component**. Before turning inputs in a form into controlled components, you should ask yourself if you need it to be controlled because adding states adds complexity, introduces potential bugs, more code in the bundle, and more CPU cycles.
+
+These are some cases where you think you need to use controlled inputs but you might not need it.
+
+### Collecting input values
+
+One of the common cases to use controlled inputs is to collect the input values and send to an API route like this:
+
+```tsx title="component.tsx" lineNumbers
+const MyComponent = () => {
+  const [value, setValue] = useState("");
+
+  const handleSubmit = async () => {
+    await fetchData({
+      body: { value },
+    });
+  };
+
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  );
+};
+```
+
+However, if we are using a server function to handle the form submission, we don't need to use controlled inputs.
+
+```tsx title="component.tsx" lineNumbers
+import { useActionState } from "react";
+import { serverFunction } from "./some-server-function";
+
+const MyComponent = () => {
+  const [state, action, pending] = useActionState(serverFunction, null);
+  return (
+    <div>
+      <form action={action}>
+        <input type="text" name="username" />
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  );
+};
+```
+
+```ts title="some-server-function.ts" lineNumbers
+export const serverFunction = async (formData: FormData) => {
+  const username = formData.get("username");
+  return { username };
+};
+```
+
+As you can see, we just need to make sure that every input field has a `name` attribute so that the server function can extract the value of the input field from the form data.
+
+### Input validation
+
+Another common case to use controlled inputs is to validate the input values before sending data to the server. Here's some things you should consider before turning your input fields into controlled components.
+
+1. Your server side code, whether it's a server function or a route handler, will validate the input values anyway because **data from external sources must always be validated**. So consider if it's acceptable to validate the inputs in the server and simply show the validation errors in the client if any.
+2. The modern browser has built-in validation for input fields. For example, if you use the `required` attribute, the browser will show a validation error if the input field is empty. Of if you add `type="email"`, the browser will show a validation error if the input field is not a valid email address. Consider the built-in HTML attributes like [pattern](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/pattern), [minLength](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/minlength), [required](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/required), input [type](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/email), etc.
+3. For validation rules that are not supported natively by the browser, consider using [useResettableActionState](https://github.com/nicnocquee/use-resettable-action-state) to validate the input values before data is sent to a server function. For example, you might want to make sure two input fields have the same value (e.g., password and confirm password) like this:
+
+```tsx title="component.tsx" lineNumbers
+"use client";
+import { doSomething } from "./actions";
+import { useResettableActionState } from "use-resettable-action-state";
+
+export default function Form({
+  initialState,
+}: {
+  initialState: { password: string | null; error: string | null };
+}) {
+  const [state, submit, isPending, reset, payload] = useResettableActionState(
+    doSomething,
+    initialState,
+    undefined,
+    async (payload, abortController) => {
+      if (payload?.get("password") !== payload?.get("repeat-password")) {
+        abortController.abort({
+          error: "Passwords do not match",
+        });
+      }
+      return payload;
+    }
+  );
+
+  return (
+    <form action={submit}>
+      {state && !state.error && <p>Success!</p>}
+      {state && state.error && (
+        <p className="bg-red-500 text-white p-4">{state.error}</p>
+      )}
+      <input
+        type="password"
+        name="password"
+        id="password"
+        placeholder="Enter new password"
+      />
+      <input
+        type="password"
+        name="repeat-password"
+        id="repeat-password"
+        placeholder="Repeat the new password"
+      />
+      <p>{state && state.data?.message}</p>
+
+      <button disabled={isPending} type="submit">
+        {isPending ? "Loading..." : "Submit"}
+      </button>
+    </form>
+  );
+}
+```
+
+Use controlled inputs when all three conditions above are not met.
+
+### Using third party form libraries
+
+There are many third party form libraries that can help you manage forms in a more declarative way. For example, [React Hook Form](https://react-hook-form.com/) and [Formik](https://formik.org/).
+
+<Callout type="info" title="TODO">
+  Discuss and write down when to use third party form libraries.
+</Callout>
+
+## Compound pattern
+
+The compound pattern is a way to create a component that is a composition of multiple components. It is a way to keep the components clean and modular. Let's say we want to create a `Tabs` component. It consists of two main parts:
+
+- The list of tabs: it shows all the available tabs, which tab is currently active (selected), and allows the user to switch between tabs.
+- The content of the tabs: it shows the content of the currently active tab.
+
+### Without compound pattern
+
+A straightforward approach is to create a single component that handles both the list of tabs and the content of the tabs.
+
+```tsx title="tabs.tsx" lineNumbers
+const Tabs = ({
+  tabs,
+}: {
+  tabs: {
+    key: string;
+    label: string;
+    content: React.ReactNode;
+    isActive: boolean;
+  }[];
+}) => {
+  const [activeTab, setActiveTab] = useState(
+    tabs.find((tab) => tab.isActive)?.key
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-row gap-2">
+        {tabs.map((tab) => {
+          const isActive = tab.key === activeTab;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                isActive ? "bg-blue-500 text-white" : "bg-gray-500 text-white"
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+      <div>{tabs.find((tab) => tab.key === activeTab)?.content}</div>
+    </div>
+  );
+};
+```
+
+Then we can use the `Tabs` component like this:
+
+```tsx title="component.tsx" lineNumbers
+const Component = () => {
+  return (
+    <Tabs
+      tabs={[
+        {
+          key: "tab1",
+          label: "Tab 1",
+          content: <div>Tab 1 content</div>,
+          isActive: true,
+        },
+        {
+          key: "tab2",
+          label: "Tab 2",
+          content: <div>Tab 2 content</div>,
+          isActive: false,
+        },
+        {
+          key: "tab3",
+          label: "Tab 3",
+          content: <div>Tab 3 content</div>,
+          isActive: false,
+        },
+      ]}
+    />
+  );
+};
+```
+
+The problem with this approach is that the `Tabs` component is getting too complex and it has no separation of concerns. It is responsible for both the list of tabs and the content of the tabs. It is also responsible for the state management of the active tab. It is also responsible for the logic to switch between tabs. It simply does too much.
+
+### With compound pattern
+
+We can use the compound pattern to break down the `Tabs` component into smaller components that are responsible for a single responsibility:
+
+- The `Tabs` component: the parent component that manages the state and delegates rendering to the child components.
+- The `TabList` component: the component that renders the list of tabs.
+- The `Tab` component: the component that renders a single tab.
+- The `TabPanels` component: the component that renders the content of the tabs.
+- The `TabPanel` component: the component that renders the content of the currently active tab.
+
+```tsx title="tabs.tsx" lineNumbers
+// Create a context to share state between components
+const TabsContext = createContext(null);
+
+// Parent component manages state but delegates rendering
+const Tabs = ({ children, defaultActiveKey }) => {
+  const [activeKey, setActiveKey] = useState(defaultActiveKey);
+
+  return (
+    <TabsContext.Provider value={{ activeKey, setActiveKey }}>
+      <div className="tabs-container">{children}</div>
+    </TabsContext.Provider>
+  );
+};
+
+// Child components with default styling
+const TabList = ({ children, className = "flex flex-row gap-2" }) => {
+  return <div className={className}>{children}</div>;
+};
+
+const Tab = ({ children, tabKey, disabled, className }) => {
+  const { activeKey, setActiveKey } = useContext(TabsContext);
+  const isActive = activeKey === tabKey;
+
+  const defaultClassName = isActive
+    ? "bg-blue-500 text-white px-4 py-2 rounded"
+    : "bg-gray-500 text-white px-4 py-2 rounded";
+
+  return (
+    <button
+      disabled={disabled}
+      onClick={() => !disabled && setActiveKey(tabKey)}
+      className={className || defaultClassName}
+    >
+      {children}
+    </button>
+  );
+};
+
+const TabPanels = ({ children, className = "mt-4" }) => {
+  return <div className={className}>{children}</div>;
+};
+
+const TabPanel = ({ children, tabKey }) => {
+  const { activeKey } = useContext(TabsContext);
+
+  if (activeKey !== tabKey) return null;
+  return <div className="tab-panel">{children}</div>;
+};
+
+// Attach child components to the parent
+Tabs.TabList = TabList;
+Tabs.Tab = Tab;
+Tabs.TabPanels = TabPanels;
+Tabs.TabPanel = TabPanel;
+```
+
+Then we can use the `Tabs` component with its default styling like this:
+
+```tsx title="component.tsx" lineNumbers
+<Tabs defaultActiveKey="tab1">
+  <Tabs.TabList>
+    <Tabs.Tab tabKey="tab1">First Tab</Tabs.Tab>
+    <Tabs.Tab tabKey="tab2">Second Tab</Tabs.Tab>
+    <Tabs.Tab tabKey="tab3" disabled>
+      Disabled Tab
+    </Tabs.Tab>
+  </Tabs.TabList>
+
+  <Tabs.TabPanels>
+    <Tabs.TabPanel tabKey="tab1">
+      <p>Content for first tab</p>
+    </Tabs.TabPanel>
+    <Tabs.TabPanel tabKey="tab2">
+      <p>Content for second tab</p>
+    </Tabs.TabPanel>
+    <Tabs.TabPanel tabKey="tab3">
+      <p>Content for disabled tab</p>
+    </Tabs.TabPanel>
+  </Tabs.TabPanels>
+</Tabs>
+```
+
+Or we can have `Tabs` component with custom styling like for the tabs list and the panels:
+
+```tsx title="component.tsx" lineNumbers
+<Tabs defaultActiveKey="tab1">
+  <Tabs.TabList className="flex flex-col space-y-2 border-r pr-4">
+    <Tabs.Tab
+      tabKey="tab1"
+      className="text-left hover:bg-gray-100 px-4 py-2 rounded-l"
+    >
+      First Tab
+    </Tabs.Tab>
+    <Tabs.Tab
+      tabKey="tab2"
+      className="text-left hover:bg-gray-100 px-4 py-2 rounded-l"
+    >
+      Second Tab
+    </Tabs.Tab>
+  </Tabs.TabList>
+
+  <Tabs.TabPanels className="pl-4 flex-1">
+    <Tabs.TabPanel tabKey="tab1">
+      <p>Content for first tab</p>
+    </Tabs.TabPanel>
+    <Tabs.TabPanel tabKey="tab2">
+      <p>Content for second tab</p>
+    </Tabs.TabPanel>
+  </Tabs.TabPanels>
+</Tabs>
+```
+
+With compound pattern, we have a clear separation of concerns and more flexibility.
+
 ## Ground Rules
 
 |     | Action                                                                                |
@@ -243,6 +670,9 @@ The great thing about this approach is that we can now create another new compon
 | ✅  | Always encapsulate the logic in a custom hook.                                        |
 | ✅  | Do not create inline functions that return JSX. Instead, create a separate component. |
 | ✅  | Use HOC to further reduce the complexity of a component.                              |
+| ✅  | Be cautious about adding states to a component.                                       |
+| ✅  | Use uncontrolled inputs in forms when possible.                                       |
+| ✅  | Use compound pattern to have a clear separation of concerns and more flexibility.     |
 
 ## Todos
 
