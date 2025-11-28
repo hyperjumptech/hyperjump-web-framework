@@ -1,8 +1,10 @@
 import { Button } from "@workspace/ui/components/button";
+import { env } from "@workspace/env";
 
 export default function Page() {
-  const isOdd = process.env.IS_ODD;
+  const isOdd = env.IS_ODD;
   const shouldRender = isOdd?.includes("_yo");
+
   return (
     <div className="flex items-center justify-center min-h-svh">
       <div className="flex flex-col items-center justify-center gap-4">
