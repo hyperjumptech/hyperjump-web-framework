@@ -4,7 +4,7 @@ title: API Routes
 
 Route handler (API routes) **must not** be your first choice for communication between the client (browser) and the server. For fetching data, read the [Fetching Data](./fetching-data.mdx) guide. For updating data, read the [Updating Data](./updating-data.mdx) guide.
 
-If you must use route handler, this page provides some rules to follow to keep the code clean and maintainable.
+If you must use route handler, this page provides some rules and conventions to follow to keep the code clean and maintainable.
 
 ## Generate the code
 
@@ -24,7 +24,7 @@ For example, if we want to create a GET route handler for the `/api/posts` endpo
 `route-next-gen` will generate several files in the same directory as the config file:
 
 - `route.ts`: The route handler file that Next.js will use to handle the request.
-- `use-route-[get|post|put|delete|patch|options|head].ts`: A custom hook that can be used to fetch data from the route.
+- `use-route-[get|post|put|delete|patch|options|head].ts`: A custom hook that can be used to fetch data from the route based on the method.
 - `client.ts`: A client file that can be used to call the route handler from non-React app.
 
 ### How it works
@@ -40,17 +40,18 @@ When the `route-next-gen` command is run, it will search for all of the config f
 
 The config file needs to export the following:
 
-- `auth` function: an optional async function that returns a user object if the request is authenticated, otherwise returns null. If you want to reject the request, throw an error.
-- `bodyValidator` object that defines the body schema using Zod. Only required for POST/PUT/PATCH requests. The incoming request's body will be validated against this schema.
-- `queryValidator` object that defines the query schema using Zod. The incoming request's query/search params will be validated against this schema.
-- `paramsValidator` object that defines the params schema using Zod. The incoming request's path params will be validated against this schema. Only valid for route handlers with dynamic segments, e.g., `/api/posts/[postId]/route.ts`.
-- `headersValidator` object that defines the headers schema using Zod. The incoming request's headers will be validated against this schema.
-- `responseValidator` object that defines the response schema using Zod.
+- `requestValidator` object that is created by calling the `createRequestValidator` function with the following optional parameters:
+  - `body`: an optional object that defines the body schema using Zod. Only required for POST/PUT/PATCH requests. The incoming request's body will be validated against this schema.
+  - `params`: an optional object that defines the params schema using Zod. The incoming request's path params will be validated against this schema. Only valid for route handlers with dynamic segments, e.g., `/api/posts/[postId]/route.ts`.
+  - `headers`: an optional object that defines the headers schema using Zod. The incoming request's headers will be validated against this schema.
+  - `searchParams`: an optional object that defines the search params schema using Zod. The incoming request's search params will be validated against this schema.
+  - `user`: an optional function that returns a user object if the request is authenticated, otherwise returns null. If you want to reject the request, throw an error.
+
 - `handler` function: async function that accepts the validated body, query, params, and headers, and returns a Response object.
 
-### Auth Function
+### User Function
 
-The auth function is the first function to be executed when a request is made to the route. Use this function to check if the request is authenticated.
+The user function is the first function to be executed when a request is made to the route. Use this function to check if the request is authenticated.
 
 Implementation details:
 
@@ -62,12 +63,17 @@ For example, if you want to only allow authenticated requests to the `/api/posts
 
 ```ts title="/api/posts/route.get.config.ts" lineNumbers
 import { z } from "zod";
+import type { AuthFunc } from "@hyperjumptech/route-next-gen/lib";
 
-export const auth = async (request: Request) => {
+const auth: AuthFunc = async (request: Request) => {
   const user = await getUser(request);
   if (!user) throw new Error("Unauthorized");
   return user;
 };
+
+export const requestValidator = createRequestValidator({
+  user: auth,
+});
 ```
 
 And the `getUser` function can check if the user exists in the database based on the token in the cookie.
@@ -96,8 +102,12 @@ The body validator is a zod object that defines the body schema. It is used to v
 ```ts title="/api/posts/route.post.config.ts" lineNumbers
 import { z } from "zod";
 
-export const bodyValidator = z.object({
+const bodyValidator = z.object({
   name: z.string().min(1),
+});
+
+export const requestValidator = createRequestValidator({
+  body: bodyValidator,
 });
 ```
 
@@ -108,24 +118,28 @@ Implementation details:
 - If the config is for a GET request, the body validator will be ignored.
 - If the config does not define and export a body validator, the incoming request's body will not be checked and the `handler` function will receive an empty object.
 
-### Query Validator
+### Search Params Validator
 
-The query validator is a zod object that defines the query schema. It is used to validate the query of the request.
+The search params validator is a zod object that defines the search params schema. It is used to validate the search params of the request.
 
 ```ts title="/api/posts/route.get.config.ts" lineNumbers
 import { z } from "zod";
 
-export const queryValidator = z.object({
+const searchParamsValidator = z.object({
   name: z.string().min(1),
   filter: z.array(z.string()).optional(),
 });
+
+export const requestValidator = createRequestValidator({
+  searchParams: searchParamsValidator,
+});
 ```
 
-`route-next-gen` will generate code to turn the query/search params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
+`route-next-gen` will generate code to turn the search params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
 
 Implementation details based on the example above:
 
-- The value of a query/search param can be a single value or an array of values. In the example above, if the request's search params is `?name=John&filter=active&filter=archived`, the `handler` function will receive the following object: `{ name: 'John', filter: ['active', 'archived'] }`.
+- The value of a search param can be a single value or an array of values. In the example above, if the request's search params is `?name=John&filter=active&filter=archived`, the `handler` function will receive the following object: `{ name: 'John', filter: ['active', 'archived'] }`.
 - If the request's search params is `?name=John&name=Jane&filter=active&filter=archived`, the validation will fail and return a 400 Bad Request response because the validator expects the value of the `name` param to be a single value.
 - If the request's search params is `?name=John&filter=active`, the validation will pass and the `handler` function will receive the following object: `{ name: 'John', filter: ['active'] }`. Even though the validator expects the value of the `filter` param to be an array of values, the validation will pass because a single value is also considered an array of one value.
 
@@ -136,14 +150,18 @@ The params validator is a zod object that defines the params schema. It is used 
 ```ts title="/api/tags/[tagId]/authors/[authorId]/views/[views]/route.get.config.ts" lineNumbers
 import { z } from "zod";
 
-export const paramsValidator = z.object({
+const paramsValidator = z.object({
   tagId: z.string().min(1),
   authorId: z.string().min(1),
   views: z.coerce.number().min(10),
 });
+
+export const requestValidator = createRequestValidator({
+  params: paramsValidator,
+});
 ```
 
-In the example above, a request to `/api/tags/123/authors/456/views/100` will pass the validation, but a request to `/api/tags/123/authors/456/views/abc` will fail.
+In the example above, a request to `/api/tags/123/authors/456/views/100` will pass the validation, but a request to `/api/tags/123/authors/456/views/abc` will fail because the `views` param must be a number and must be greater than 10.
 
 `route-next-gen` will generate code to turn the path params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
 
@@ -154,12 +172,16 @@ The headers validator is a zod object that defines the headers schema. It is use
 ```ts title="/api/posts/[postId]/route.get.config.ts" lineNumbers
 import { z } from "zod";
 
-export const headersValidator = z.object({
+const headersValidator = z.object({
   authorization: z
     .custom<string>()
     .refine((value) => value === `Bearer ${process.env.API_KEY}`, {
       message: "Invalid API key",
     }),
+});
+
+export const requestValidator = createRequestValidator({
+  headers: headersValidator,
 });
 ```
 
@@ -196,50 +218,56 @@ The handler function is the main function that will be executed when a request i
 The handler function will be called in the generated `route.ts` file with a single argument object that contains:
 
 - `body`: the validated body object if the config defines the `bodyValidator`, otherwise it will not be present.
-- `query`: the validated query object if the config defines the `queryValidator`, otherwise it will not be present.
+- `searchParams`: the validated search params object if the config defines the `searchParamsValidator`, otherwise it will not be present.
 - `params`: the validated params object if the config defines the `paramsValidator`, otherwise it will not be present.
 - `headers`: the validated headers object if the config defines the `headersValidator`, otherwise it will not be present.
 - `user`: the user object with the same type as the return value of the `auth` function if the `auth` function is defined, otherwise it will not be present.
 
-For example, if you only defined the `bodyValidator`, `paramsValidator`, and `auth` function in the config, the `handler` function will be called with an object that contains the `body`, `params`, and `user` properties.
+For example, if you only defined the `bodyValidator`, `searchParamsValidator`, `paramsValidator`, and `auth` function in the config, the `handler` function will be called with an object that contains the `body`, `searchParams`, `params`, and `user` properties.
 
 ```ts title="/api/posts/[postId]/route.post.config.ts" lineNumbers
 import { z } from "zod";
 import {
+  AuthFunc,
+  createRequestValidator,
   successResponse,
   errorResponse,
-} from "@hyperjumptech/route-next-gen/lib";
+  HandlerFunc,
+} from "../../route-next-gen-lib";
+import { getUser, User } from "./user";
+import { getPost, updatePost } from "./post";
 
-export const bodyValidator = z.object({
+const bodyValidator = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
 });
 
-export const paramsValidator = z.object({
+const paramsValidator = z.object({
   postId: z.string().min(1),
 });
 
-export const auth = async (request: Request) => {
+export const auth: AuthFunc<User> = async (request: Request) => {
   const user = await getUser(request);
   if (!user) throw new Error("Unauthorized");
   return user;
 };
 
+export const requestValidator = createRequestValidator({
+  body: bodyValidator,
+  params: paramsValidator,
+  user: auth,
+});
+
 export const responseValidator = z.object({
   id: z.string().min(1),
 });
 
-// TODO: Generate this type automatically if possible
-type HandlerFunc = (data: {
-  body: z.infer<typeof bodyValidator>;
-  params: z.infer<typeof paramsValidator>;
-  user: Awaited<ReturnType<typeof auth>>;
-}): HandlerResponse<z.infer<typeof responseValidator>>
-
-export const handler: HandlerFunc = async (data) => {
-  const post = await db.post.findUnique({
-    where: { id: params.postId },
-  });
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator
+> = async (data) => {
+  const { body, params, user } = data;
+  const post = await getPost(params.postId);
   if (!post) {
     return errorResponse(404, "Post not found");
   }
@@ -250,12 +278,9 @@ export const handler: HandlerFunc = async (data) => {
     );
   }
 
-  await db.post.update({
-    where: { id: params.postId },
-    data: {
-      title: body.title,
-      content: body.content,
-    },
+  await updatePost(params.postId, {
+    title: body.title,
+    content: body.content,
   });
 
   return successResponse(200, { id: post.id });
@@ -264,11 +289,13 @@ export const handler: HandlerFunc = async (data) => {
 
 In the example above, the config uses three helpers from `@hyperjumptech/route-next-gen/lib`:
 
+- `createRequestValidator`: a helper function to create the `requestValidator` object.
 - `successResponse`: a helper function to create a response for success cases.
 - `errorResponse`: a helper function to create a response for error cases.
-- `HandlerResponse`: a generic type that represents the successful response from the `handler` function.
+- `HandlerFunc`: a generic type that represents the `handler` function.
+- `AuthFunc`: a generic type that represents the `auth` function.
 
-These three helpers are needed so that the generated `route.ts` file is also strongly typed.
+These helpers are needed so that the generated `route.ts` file is strongly typed.
 
 In the `handler` function, you should catch any errors and return an error response using the `errorResponse` helper. Any uncaught exceptions will be caught by the generated `route.ts` file and will return a generic 500 Internal Server Error response.
 
@@ -280,9 +307,7 @@ For the example in the "Handler Function" section above, `route-next-gen` will g
 /** THIS FILE IS AUTOMATICALLY GENERATED BY ROUTE-NEXT-GEN **/
 import {
   handler,
-  bodyValidator,
-  paramsValidator,
-  auth,
+  requestValidator,
   responseValidator,
 } from "./route.get.config";
 import {
@@ -295,12 +320,15 @@ export const POST = async (
   request: Request,
   { params }: { params: Promise<z.infer<typeof paramsValidator>> }
 ) => {
-  // Validate the user
+  const authValidator = requestValidator.user;
   let user: Awaited<ReturnType<typeof auth>> | null = null;
-  try {
-    user = await auth(request);
-  } catch (error) {
-    return errorResponse(401, "Unauthorized");
+
+  if (authValidator) {
+    try {
+      user = await authValidator(request);
+    } catch (error) {
+      return errorResponse(401, "Unauthorized");
+    }
   }
 
   // Get the body and params from the request
@@ -308,6 +336,8 @@ export const POST = async (
     getBodyFromRequest(request),
     params,
   ]);
+
+  const { body: bodyValidator, params: paramsValidator } = requestValidator;
 
   // Validate the body and params
   let validatedBody: z.infer<typeof bodyValidator> | undefined;
@@ -343,11 +373,11 @@ export const POST = async (
 
 If other config files for other methods (POST, PUT, PATCH, DELETE, OPTIONS, HEAD) are present, the `route.ts` file will export a function that matches the method name. For example, if there are `route.post.config.ts` and `route.get.config.ts` files, the `route.ts` file will export a `POST` function and a `GET` function.
 
-## Generated use-route.ts file
+## Generated use-route-[method].ts file
 
-In order to actually call the generated end point, `route-next-gen` will also generate a `use-route.ts` file in the same directory as the config file. This file will export a custom hook that can be used to fetch data from the route with a strongly typed response so you don't need to write the boilerplate code to call the end point yourself.
+In order to actually call the generated end point, `route-next-gen` will also generate a `use-route-[method].ts` file in the same directory as the config file. This file will export a custom hook that can be used to fetch data from the route with a strongly typed response so you don't need to write the boilerplate code to call the end point yourself.
 
-```tsx title="/api/posts/[postId]/use-route.ts" lineNumbers
+```tsx title="/api/posts/[postId]/use-route-post.ts" lineNumbers
 /** THIS FILE IS AUTOMATICALLY GENERATED BY ROUTE-NEXT-GEN **/
 import useSWR from "swr";
 import {
@@ -358,7 +388,11 @@ import {
 } from "./route.get.config";
 import { z } from "zod";
 
-export const useRoute = ({ options }: { options?: { autoRun?: boolean } }) => {
+export const useRoutePost = ({
+  options,
+}: {
+  options?: { autoRun?: boolean };
+}) => {
   const [data, setData] = useState<z.infer<typeof responseValidator> | null>(
     null
   );

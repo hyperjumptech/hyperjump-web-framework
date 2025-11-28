@@ -32,7 +32,7 @@ With Server Functions, we can simply create a strongly typed function and direct
 
 For example, we have a component that allows the user to toggle the favorite status of a post. We can create a server function to handle the toggle action.
 
-```tsx title="toggle-favorite.server.ts" lineNumbers
+```tsx title="toggle-favorite.action.ts" lineNumbers
 "use server";
 
 export const toggleFavorite = async (postId: string) => {
@@ -66,9 +66,9 @@ Then we can call the server function from the client component like this:
 "use client";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { toggleFavorite } from "./toggle-favorite.server";
+import { toggleFavorite } from "./toggle-favorite.action";
 
-export const ToggleFavorite = ({ postId }: { postId: string }) => {
+const useToggleFavorite = (postId: string) => {
   const [isPending, startTransition] = useTransition();
 
   const handleToggle = async () => {
@@ -82,14 +82,20 @@ export const ToggleFavorite = ({ postId }: { postId: string }) => {
     });
   };
 
+  return {
+    isPending,
+    handleToggle,
+  };
+};
+
+export const ToggleFavorite = ({ postId }: { postId: string }) => {
+  const { isPending, handleToggle } = useToggleFavorite(postId);
   return (
     <div>
-      <button onClick={handleToggle} disabled={isLoading}>
-        {isLoading ? "Loading..." : "Toggle Favorite"}
+      <button onClick={handleToggle} disabled={isPending}>
+        {isPending ? "Loading..." : "Toggle Favorite"}
       </button>
     </div>
-    {error && <div>{error}</div>}
-    {message && <div>{message}</div>}
   );
 };
 ```
@@ -100,4 +106,151 @@ export const ToggleFavorite = ({ postId }: { postId: string }) => {
   callable from the client component.
 </Callout>
 
-As you can see, both the client and the server sides are strongly typed. The server function's input and output are known to the client component. This means that the client code we write won't have missing or incorrect fields when sending the request to the server. We can also be sure that the reseponse handling code in the client component won't have any unexpected fields. If the input or output is changed in the server function, the client code will not compile.
+As you can see, both the client and the server sides are strongly typed. The server function's input and output are known to the client component. This means that the client code we write won't have missing or incorrect fields when sending the request to the server. We can also be sure that the response handling code in the client component won't have any unexpected properties. If the input or output is changed in the server function, the client code will not compile.
+
+<Callout type="info" title="Good to know">
+  Server function in Next.js is tightly integrated with Next.js' caching and
+  rendering which makes it possible to perform mutation and see the updated data
+  in the UI without having to refresh the page. As such, it has one limitation:
+  subsequent server function calls are executed sequentially. As of this
+  writing, this limitation is not yet addressed.
+</Callout>
+
+## Showing updated data
+
+After updating data, we often need to show the updated data in the UI. For example, we have this page component in `/updating-data`:
+
+```tsx title="updating-data/page.tsx" lineNumbers
+import { notFound } from "next/navigation";
+import { getPostByIdAndUser } from "./post";
+import { ToggleFavorite } from "./toggle-favorite.client";
+
+export default async function Page() {
+  const post = await getPostByIdAndUser("1", "1");
+  if (!post) {
+    notFound();
+  }
+  return (
+    <div>
+      <h1>Post #1: {post.title}</h1>
+      <p>Content: {post.content}</p>
+      <p>Is Favorite: {post.isFavorite ? "Yes" : "No"}</p>
+      <ToggleFavorite postId="1" />
+    </div>
+  );
+}
+```
+
+After toggling the favorite status of the post, the UI should show the updated data. With server function, this is trivial to do. All we have to do is call one of these functions in the server function:
+
+- `refresh()`. This will refresh the client router. But it's only available in Next.js 16 and it doesn't revalidate the tagged cache data.
+- `revalidatePage(pathname)`: This will invalidate the cached data for a specific path so that the UI is immediately updated.
+- `revalidateTag(tag)`: This will invalidate the cached data for a specific tag but the UI will not be updated immediately. The new data will appear in the next page visit.
+
+Generally, we should use `revalidatePage(pathname)` to revalidate the cached data for the current page.
+
+```tsx title="toggle-favorite.action.ts" lineNumbers
+"use server";
+
+import { getUser } from "./user";
+import { getPostByIdAndUser, updatePost } from "./post";
+import { revalidatePath } from "next/cache";
+
+export const toggleFavorite = async (postId: string) => {
+  const user = await getUser();
+  if (!user) {
+    return {
+      ok: 0,
+      error: "user not found",
+    };
+  }
+  const post = await getPostByIdAndUser(postId, user.id);
+  if (!post) {
+    return {
+      ok: 0,
+      error: "Post not found",
+    };
+  }
+  await updatePost(postId, user.id, !post.isFavorite);
+
+  revalidatePath("/updating-data");
+
+  return {
+    ok: 1,
+    message: "Post toggled successfully",
+  };
+};
+```
+
+If you notice, this approach doesn't require any code in the client component. When the data is successfully updated, we don't need to write code to update the UI to reflect the updated data or to synchronize the data between the client and the server. We just need to tell the server to return the fresh data. The source of truth of data is from the server.
+
+## Optimistic update
+
+Some operations performed by a user are not mission critical. For example, bookmarking a post or toggling the favorite status of a post. On the other hand, there are operations that are mission critical, e.g., making a purchase. In a critical operation, it is acceptable to show a loading state to the user while the operation is being performed. But for non-critical operations, we can make our app to be perceived as fast and responsive by updating the UI immediately without waiting for the server to return the updated data. This is called **optimistic update**. And React provides us with the tool called `useOptimistic` hook.
+
+### Example
+
+Say for example, in the example above, the `toggleFavorite` server function takes a few second to complete. We can use `useOptimistic` hook to update the UI immediately without waiting for the server to return the updated data.
+
+```tsx title="toggle-favorite.client.tsx" lineNumbers
+"use client";
+import { useOptimistic, useTransition } from "react";
+import { toast } from "sonner";
+import { toggleFavorite } from "./toggle-favorite.action";
+
+const useToggleFavorite = (postId: string, isFavorite: boolean) => {
+  const [isPending, startTransition] = useTransition();
+  // [!code highlight:6]
+  const [optimisticFavorite, setOptimisticFavorite] = useOptimistic(
+    isFavorite,
+    (_currentState, _: void) => {
+      return !_currentState;
+    }
+  );
+
+  const handleToggle = async () => {
+    startTransition(async () => {
+      setOptimisticFavorite();
+
+      const result = await toggleFavorite(postId);
+      if (result.ok === 1) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
+
+  return {
+    currentFavorite: optimisticFavorite,
+    isPending,
+    handleToggle,
+  };
+};
+
+export const ToggleFavorite = ({
+  postId,
+  isFavorite,
+}: {
+  postId: string;
+  isFavorite: boolean; // This value is from the server, the source of truth of the data
+}) => {
+  const { handleToggle, currentFavorite } = useToggleFavorite(
+    postId,
+    isFavorite
+  );
+  return (
+    <div>
+      <p>Is Favorite: {currentFavorite ? "Yes" : "No"}</p>
+      <button onClick={handleToggle}>Toggle Favorite</button>
+    </div>
+  );
+};
+```
+
+### When to use
+
+Fast and snappy UI is important for the user experience. But we should not use optimistic update for all operations. You should not use optimistic update when:
+
+1. the operation involves monetary value. For example, completing a purchase transaction.
+2. the operation is destructive and irreversible. For example, deleting a post.
