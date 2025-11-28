@@ -223,7 +223,7 @@ The handler function will be called in the generated `route.ts` file with a sing
 - `headers`: the validated headers object if the config defines the `headersValidator`, otherwise it will not be present.
 - `user`: the user object with the same type as the return value of the `auth` function if the `auth` function is defined, otherwise it will not be present.
 
-For example, if you only defined the `bodyValidator`, `searchParamsValidator`, `paramsValidator`, and `auth` function in the config, the `handler` function will be called with an object that contains the `body`, `searchParams`, `params`, and `user` properties.
+For example, if you only defined the `body`, `params`, and `user` in the `createRequestValidator` function, the `handler` function will be called with an object that contains the `body`, `params`, and `user` properties.
 
 ```ts title="/api/posts/[postId]/route.post.config.ts" lineNumbers
 import { z } from "zod";
