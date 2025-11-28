@@ -9,31 +9,37 @@ import {
 import { getUser, User } from "./user";
 import { getPost, updatePost } from "./post";
 
+// The body validator
 const bodyValidator = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
 });
 
+// The dyanamic params validator
 const paramsValidator = z.object({
   postId: z.string().min(1),
 });
 
+// The auth function to authorize the request
 const auth: AuthFunc<User> = async (request: Request) => {
   const user = await getUser(request);
   if (!user) throw new Error("Unauthorized");
   return user;
 };
 
+// The request validator which combines all the validators
 export const requestValidator = createRequestValidator({
   body: bodyValidator,
   params: paramsValidator,
   user: auth,
 });
 
+// The response validator to validate the response
 export const responseValidator = z.object({
   id: z.string().min(1),
 });
 
+// The handler function to handle the request
 export const handler: HandlerFunc<
   typeof requestValidator,
   typeof responseValidator
