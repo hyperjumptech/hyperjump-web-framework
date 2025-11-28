@@ -46,8 +46,8 @@ The config file needs to export the following:
   - `headers`: an optional object that defines the headers schema using Zod. The incoming request's headers will be validated against this schema.
   - `searchParams`: an optional object that defines the search params schema using Zod. The incoming request's search params will be validated against this schema.
   - `user`: an optional function that returns a user object if the request is authenticated, otherwise returns null. If you want to reject the request, throw an error.
-
-- `handler` function: async function that accepts the validated body, query, params, and headers, and returns a Response object.
+- `responseValidator` object that defines the response schema using Zod.
+- `handler` function: async function that accepts the validated body, search params, params, and headers, and returns a `HandlerResponse` object.
 
 ### User Function
 
@@ -287,17 +287,17 @@ export const handler: HandlerFunc<
 };
 ```
 
-In the example above, the config uses three helpers from `@hyperjumptech/route-next-gen/lib`:
+In the example above, the config uses several helpers from `@hyperjumptech/route-next-gen/lib`:
 
 - `createRequestValidator`: a helper function to create the `requestValidator` object.
 - `successResponse`: a helper function to create a response for success cases.
 - `errorResponse`: a helper function to create a response for error cases.
 - `HandlerFunc`: a generic type that represents the `handler` function.
-- `AuthFunc`: a generic type that represents the `auth` function.
+- `AuthFunc`: a generic type that represents the `user` function.
 
 These helpers are needed so that the generated `route.ts` file is strongly typed.
 
-In the `handler` function, you should catch any errors and return an error response using the `errorResponse` helper. Any uncaught exceptions will be caught by the generated `route.ts` file and will return a generic 500 Internal Server Error response.
+In the `handler` function, you should catch any errors and return a `HandlerResponse` object using the `successResponse` or `errorResponse` helpers. Any uncaught exceptions will be caught by the generated `route.ts` file and will return a `HandlerResponse` object with the status `false` and the status code 500.
 
 ## Generated route.ts file
 
