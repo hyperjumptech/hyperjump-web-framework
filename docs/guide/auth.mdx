@@ -217,14 +217,16 @@ const Profile = async ({ user }: { user: User }) => {
 export default withUser(Profile);
 ```
 
-The points to remember when using the HOC are so that the component:
+The key points to remember when using the HOC are so that the component:
 
 - does not need to care how to get the user object
 - is only rendered if the user is authenticated
 
+This way the code is more modular, cleaner, and easier to understand.
+
 ### Optimistic check
 
-There are cases where a component only needs to check if the user is logged in. For example, a page that displays membership rules. If the user is not logged in, we can show a message to the user to login first. The page does not need to know the user object, it only needs to know if the user is logged in or not.
+There are cases where a component only needs to check if the user is logged in. For example, a page that displays membership rules. If the user is not logged in, we can show a message to the user to login first. The page does not need to know the user object, it only needs to know if the user is logged in or not. So in this case there is no need to connect to the database to retrieve the user object.
 
 For this kind of case, we can create a helper function that only checks the user optimistically like this:
 
@@ -273,6 +275,8 @@ const Page = async ({ isLoggedIn }: { isLoggedIn: boolean }) => {
 
 export default withOptimisticCheck(Page);
 ```
+
+Optimistic check is useful to keep our app secure but still fast and not using too much computational resources.
 
 ### Avoid proxy.js
 
