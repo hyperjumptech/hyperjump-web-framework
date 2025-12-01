@@ -254,3 +254,329 @@ Fast and snappy UI is important for the user experience. But we should not use o
 
 1. the operation involves monetary value. For example, completing a purchase transaction.
 2. the operation is destructive and irreversible. For example, deleting a post.
+
+## Server Actions for form submission
+
+When updating data from a form, we use a particular server functions to handle the form submission instead of a route handler. However, the server function for form submission has a specific signature when used with the `useActionState` hook (or `useResettableActionState` hook). It accepts two arguments:
+
+- the previous state: the value that was returned by the previous call to the server function.
+- the form data: the data that was sent from the client.
+
+From here on, we will refer to the server function that handles the form submission as a **server action** because we indirectly pass it to the `action` prop of the form. "Indirectly" because the server function is not directly passed to the `action` prop, but rather to the `useResettableActionState` hook.
+
+For example we have the following form:
+
+```tsx title="form.tsx" lineNumbers
+"use client";
+import { serverAction } from "./server-action";
+import { useResettableActionState } from "@nicnocquee/use-resettable-action-state";
+
+const Form = () => {
+  const [state, action, pending] = useResettableActionState(serverAction, null);
+  return (
+    <form action={action}>
+      <input type="hidden" name="token" />
+      <input type="password" name="password" />
+      <input type="email" name="email" />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
+
+and the following server function:
+
+```tsx title="server-action.ts" lineNumbers
+"use server";
+
+export const serverAction = async (previousState: any, formData: FormData) => {
+  const token = formData.get("token");
+  const password = formData.get("password");
+  const email = formData.get("email");
+
+  // do something with the data
+  // ...
+
+  return { success: true, message: "Data updated successfully" };
+};
+```
+
+### useResettableActionState
+
+The `useResettableActionState` is basically a wrapper for React's `useActionState`. Please read the docs for more information. But the gist is basically it allows you
+
+- to reset the state of the action
+- to run some code before the form is submitted, e.g., data validation, add more data, etc.
+- to access the payload of the form submission, i.e., the data that was sent from the client.
+
+### Redirecting
+
+Generally, you can redirect the user in the server function like this:
+
+```tsx title="server-action.ts" lineNumbers
+"use server";
+
+import { redirect } from "next/navigation";
+
+export const serverAction = async (previousState: any, formData: FormData) => {
+  // do something with the data
+  redirect("/success");
+};
+```
+
+<Callout type="info" title="Good to know">
+  The Next.js' `redirect` function actually throws an error which will be caught
+  by the Next.js to actually perform the redirect. Because of this, you must not
+  put the `redirect` function in a try-catch block.
+</Callout>
+
+In some rare cases like due to a bug in the Next.js, you may need to perform the redirect in the client component. You can do this by using the `useRouter` hook from Next.js:
+
+```tsx title="component.tsx" lineNumbers
+"use client";
+import { useRouter } from "next/navigation";
+
+const Component = () => {
+  const router = useRouter();
+  const [state, action, pending] = useResettableActionState(serverAction, null);
+
+  if (!pending && state?.success) {
+    router.push("/success");
+  }
+  return (
+    <form action={action}>
+      <input type="text" name="username" />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
+
+### Error handling
+
+The server function should catch any known and expected errors and return a response to the client. For example, if the form validation fails, you should return an error response to the client.
+
+```tsx title="server-action.ts" lineNumbers
+"use server";
+
+export const serverAction = async (previousState: any, formData: FormData) => {
+  const postId = formData.get("postId");
+  if (!postId) {
+    return { error: "Post ID is required" };
+  }
+  const post = await db.post.findUnique({
+    where: { id: postId },
+  });
+  if (!post) {
+    return { error: "Post not found" };
+  }
+  return { success: true, message: "Post updated successfully" };
+};
+```
+
+And then the client component can handle the error response like this:
+
+```tsx title="component.tsx" lineNumbers
+"use client";
+import { useResettableActionState } from "@nicnocquee/use-resettable-action-state";
+import { serverAction } from "./server-action";
+
+const Component = () => {
+  const [state, action, pending] = useResettableActionState(serverAction, null);
+  return <div>{state?.error ? <p>{state.error}</p> : <p>Success</p>}</div>;
+};
+```
+
+## Generating code
+
+In Hyperjump, we don't write the server function and server action code manually. Instead, we write the `route.post.config.ts` file to configure the server action. Then we use the `route-next-gen` command to generate the server function and server action code.
+
+For example, the following is the `/api/login/route.post.config.ts` file to handle the login form submission:
+
+```tsx title="app/api/login/route.post.config.ts" lineNumbers
+import { z } from "zod";
+
+const auth: AuthFunc<User> = async (request: Request) => {
+  const user = await getUser(request);
+  if (!user) throw new Error("Unauthorized");
+  return user;
+};
+
+export const requestValidator = createRequestValidator({
+  body: z.object({
+    email: z.string().email(),
+    password: z.string().min(8),
+  }),
+  user: auth,
+});
+
+export const responseValidator = z.object({
+  ok: z.boolean(),
+});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator
+> = async (data) => {
+  const { body } = data;
+  const user = await db.user.findUnique({
+    where: { email: body.email },
+  });
+  if (!user) {
+    return errorResponse(401, "Invalid credentials");
+  }
+  if (user.password !== body.password) {
+    return errorResponse(401, "Invalid credentials");
+  }
+  return successResponse(200, { ok: true });
+};
+```
+
+Upon running the `route-next-gen` command, it will generate two server function related files:
+
+- `app/api/login/server-function.ts`
+- `app/api/login/use-server-function.ts`
+
+The `server-function.ts` file contains two exported functions:
+
+- `serverFunction`: the server function that can be called directly from the client component.
+- `serverAction`: the server action that can be used with the `useResettableActionState` hook.
+
+Both functions perform the exactly same thing, except that the `serverAction` function accepts two arguments: the previous state and the form data. While the `serverFunction` function accepts only one argument: the data that was sent from the client.
+
+Just like the generated route handler, the generated server function and server action also checks if the request is authenticated and validates the request data before executing the handler function.
+
+### Generated server-function.ts
+
+Given the above `route.post.config.ts` file, the generated `server-function.ts` file will look like this:
+
+```tsx title="app/api/login/server-function.ts" lineNumbers
+import {
+  handler,
+  requestValidator,
+  responseValidator,
+} from "./route.post.config";
+import {
+  getBodyFromRequest,
+  errorResponse,
+  successResponse,
+} from "@hyperjumptech/route-next-gen/lib";
+import { z } from "zod";
+
+export const serverFunction = async (
+  data: ExtractValidatorData<typeof requestValidator>["body"]
+) => {
+  let user: Awaited<ReturnType<typeof auth>> | null = null;
+  if (requestValidator.user) {
+    try {
+      user = await requestValidator.user(request);
+    } catch (error) {
+      return errorResponse(401, "Unauthorized");
+    }
+  }
+  const validatedBody = requestValidator.body.parse(data);
+  return await handler({ body: validatedBody, user: user });
+};
+
+export const serverAction = async (previousState: any, formData: FormData) => {
+  let user: Awaited<ReturnType<typeof auth>> | null = null;
+  if (requestValidator.user) {
+    try {
+      user = await requestValidator.user(request);
+    } catch (error) {
+      return errorResponse(401, "Unauthorized");
+    }
+  }
+  const body = await getBodyFromRequest(formData);
+  const validatedBody = requestValidator.body.parse(body);
+  return await handler({ body: validatedBody, user: user });
+};
+```
+
+### Generated use-server-function.ts
+
+Given the above `route.post.config.ts` file, the generated `use-server-function.ts` file will look like this:
+
+```tsx title="app/api/login/use-server-function.ts" lineNumbers
+import { serverFunction, serverAction } from "./server-function";
+import { useState, useTransition } from "react";
+import { useResettableActionState } from "@nicnocquee/use-resettable-action-state";
+
+export const useServerFunction = () => {
+  const [data, setData] = useState<z.infer<typeof responseValidator> | null>(
+    null
+  );
+  const [error, setError] = useState<Error | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const fetchData = async (
+    data: ExtractValidatorData<typeof requestValidator>["body"]
+  ) => {
+    startTransition(async () => {
+      const result = await serverFunction(data);
+      if (result.status === false) {
+        setError(result.error);
+      } else {
+        setData(result.data);
+      }
+    });
+  };
+
+  return { data, error, pending, fetchData };
+};
+```
+
+Which you can use like this in the client component:
+
+```tsx title="component.tsx" lineNumbers
+"use client";
+import { useServerFunction } from "./use-server-function";
+
+const Component = () => {
+  const { data, error, pending, fetchData } = useServerFunction();
+  return (
+    <div>
+      <p>{data?.message}</p>
+      <button
+        disabled={pending}
+        onClick={() => fetchData({ username: "John Doe" })}
+      >
+        Submit
+      </button>
+    </div>
+  );
+};
+```
+
+For using the generated server action in the form in the client component, you can use the `useResettableActionState` hook like this:
+
+```tsx title="component.tsx" lineNumbers
+"use client";
+import { useResettableActionState } from "@nicnocquee/use-resettable-action-state";
+import { serverAction } from "./server-action";
+import { toast } from "sonner";
+
+const Component = () => {
+  const [state, action, pending] = useResettableActionState(serverAction, null);
+  if (!pending && state?.error) {
+    toast.error(state.error);
+  }
+  return (
+    <form action={action}>
+      <input type="text" name="username" />
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
+
+## Security
+
+Server function and server action are basically a public end point that can be called from the client component. As such, you should always authorize and validate the data that is sent from the client to prevent unauthorized access and data manipulation. When using `route-next-gen`, you have to always include the user function in the request validator to authorize the request.
+
+## Ground Rules
+
+|     | Action                                                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------------------- |
+| ✅  | Never write the server function and/or server action code manually. Always use `route-next-gen` to generate the code. |
+| ✅  | Use the generated custom hooks to call the end point from a client component in the Next.js app.                      |

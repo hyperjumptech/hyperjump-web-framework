@@ -1,3 +1,306 @@
 ---
-title: Authentication
+title: Auth[entic|oriz]ation
 ---
+
+Securing access to our application involves two main things:
+
+1. Authentication: Verifying the identity of the user.
+2. Authorization: Verifying the user's permissions to access a resource.
+
+## Authentication
+
+There are million of ways to verify the identity of the user these days including social login, email and password, etc. But once the authentication succeeds, the app should provide a way to make sure that the subsequent requests are coming from the authenticated user.
+
+The most common way is by issuing a token and setting it as a secure same-site HTTP-only cookie in the response:
+
+- secure: This ensures that the cookie is only sent to the server over HTTPS.
+- same-site: This ensures that the cookie is only sent to the server from the same site, which prevents CSRF attacks.
+- HTTP-only: This ensures that the cookie is not accessible to JavaScript running in the browser, which prevents XSS attacks.
+
+This way, the token is stored in the browser and is sent to the server with each request. The server can then verify the token to authenticate the user.
+
+### Avoid local storage
+
+Storing the token in the local storage is not a good idea because it can be accessed by JavaScript running in the browser, which can be a security risk.
+
+### Stateless vs Stateful
+
+A stateless authentication is one where the server does not store any information about the user. The typical flow is:
+
+1.  The server issues a token and the client stores it in the browser.
+2.  The client then sends the token to the server with each request.
+3.  During the authorization, the server only needs to verify the token to authenticate the user.
+
+A stateful authentication is one where the server stores information about the user. The typical flow is:
+
+1.  The server issues a token, relates it to the user, and stores it in the database.
+2.  This token is then sent to the client and stored in the browser.
+3.  The client then sends the token to the server with each request.
+4.  During the authorization, the server needs to verify the token, retrieve the user from the database, and check if the user has the required permissions to access the resource.
+
+Each method has its own advantages and disadvantages. The stateless authentication is more convenient and budget-friendly since it does not require any additional storage. However, it has a few disadvantages:
+
+- The token is not stored in the database, so it is not possible to revoke it. Basically our system cannot force the user to re-login if the token is compromised.
+- To solve the problem of token compromise, we need to implement a token refresh mechanism which adds complexity to the system. Or some people implement a token blacklist mechanism to revoke the token. But this approach makes the system become kind of stateful anyway.
+
+The stateful authentication is more secure since the token is stored in the database, so it is possible to revoke it. However, it has a few disadvantages:
+
+- it requires additional storage to store the token and user information in the database.
+- it requires additional resource to retrieve the user information from the database.
+- we still need to implement the token refresh mechanism anyway to avoid having long-lived token.
+
+The decision to choose one method over the other depends on the requirements of the application. But generally, the stateful authentication the preferable choice since it is more secure. Even when token compromise is unlikely, the possibility of it not happening is not zero. So being able to revoke the token is a must thing to have.
+
+## Authorization
+
+Authorization is the process of verifying the request is coming from an authenticated user with the required permissions to access the resource.
+
+While the implementation details of authorization may vary depending on the application, the following should be followed.
+
+### `getUser` function
+
+The `getUser` function is a helper function that can be used to get the user object from the request. For example,
+
+```ts title="lib/user.ts" lineNumbers
+import { cookies } from "next/headers";
+import jwt from "jose";
+import { cache } from "react";
+
+export const getUser = cache(async () => {
+  const cookieStore = await cookies();
+
+  // Get the token from the cookie
+  const token = cookieStore.get("token")?.value;
+  if (!token) return null;
+
+  let decoded: jwt.JWTPayload;
+  try {
+    // Verify the token
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+
+  if (!decoded.sub) return null;
+
+  // Get the user from the database
+  const user = await db.user.findUnique({
+    where: {
+      id: decoded.sub,
+    },
+  });
+  return user;
+});
+```
+
+Then we can use this function in any server-side functions, including in React Server Components. For example, in the React Server Components:
+
+```tsx title="page.tsx" lineNumbers
+const Page = async () => {
+  const user = await getUser();
+  if (!user) {
+    redirect("/login");
+  }
+  return (
+    <div>
+      <h1>Hello {user.name}</h1>
+      <Profile />
+      <Posts />
+    </div>
+  );
+};
+```
+
+```tsx title="profile.tsx" lineNumbers
+const Profile = async () => {
+  const user = await getUser();
+  if (!user) {
+    return <div>Unauthorized</div>;
+  }
+  return <div>Profile of {user.name}</div>;
+};
+```
+
+```tsx title="posts.tsx" lineNumbers
+const Posts = async () => {
+  const user = await getUser();
+  if (!user) {
+    return <div>Unauthorized</div>;
+  }
+  return <div>Posts of {user.name}</div>;
+};
+
+export default Posts;
+```
+
+In the example above, even though the `getUser` function is called three times, it will only be executed once because of the `cache` function.
+
+Or in any server-side functions:
+
+```ts title="server-function.ts" lineNumbers
+"use server";
+import { getUser } from "./lib/user";
+import { errorResponse } from "@hyperjumptech/route-next-gen/lib";
+
+export const handler = async () => {
+  const user = await getUser();
+  if (!user) {
+    return errorResponse(401, "Unauthorized");
+  }
+  return successResponse(200, { message: "Hello {user?.name}" });
+};
+```
+
+### Higher order functions
+
+Repeating the same logic in multiple places can be a pain. To avoid this, we can create a higher order function that wraps the `getUser` function and returns a function that checks if the user is authenticated. For example,
+
+```ts title="lib/user.ts" lineNumbers
+import { getUser } from "./user";
+
+export const withUser = (fn: (user: User) => Promise<Response>) => {
+  return async (request: Request) => {
+    const user = await getUser();
+    if (!user) {
+      return errorResponse(401, "Unauthorized");
+    }
+    return fn(user);
+  };
+};
+```
+
+Then we can use this function in any server-side functions:
+
+```ts title="server-function.ts" lineNumbers
+import { withUser } from "./lib/user";
+import { errorResponse } from "@hyperjumptech/route-next-gen/lib";
+
+const handler = async (user: User) => {
+  return successResponse(200, { message: `Hello ${user.name}` });
+};
+
+export const handler = withUser(handler);
+```
+
+And for the RSC, we can have a HOC like this:
+
+```tsx title="with-user.tsx" lineNumbers
+import { withUser } from "./lib/user";
+import { User } from "./user";
+import { redirect } from "next/navigation";
+
+export const withUser = (Component: React.ComponentType<{ user: User }>) => {
+  const WithUser = (props: T) => {
+    const user = await getUser();
+    if (!user) {
+      redirect("/login");
+    }
+    return <Component {...props} user={user} />;
+  };
+  return WithUser;
+};
+```
+
+Then we can use this function in any React Server Components:
+
+```tsx title="profile.tsx" lineNumbers
+const Profile = async ({ user }: { user: User }) => {
+  return (
+    <div>
+      <h1>Profile</h1>
+      <p>Name: {user.name}</p>
+      <p>Email: {user.email}</p>
+    </div>
+  );
+};
+
+export default withUser(Profile);
+```
+
+The points to remember when using the HOC are so that the component:
+
+- does not need to care how to get the user object
+- is only rendered if the user is authenticated
+
+### Optimistic check
+
+There are cases where a component only needs to check if the user is logged in. For example, a page that displays membership rules. If the user is not logged in, we can show a message to the user to login first. The page does not need to know the user object, it only needs to know if the user is logged in or not.
+
+For this kind of case, we can create a helper function that only checks the user optimistically like this:
+
+```tsx title="with-optimistic-check.tsx" lineNumbers
+import { withUser } from "./lib/user";
+import { redirect } from "next/navigation";
+
+const isLoggedIn = async () => {
+  const cookiesStore = await cookies();
+  const token = cookiesStore.get("token")?.value;
+  if (!token) return false;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+export const withOptimisticCheck = (
+  Component: React.ComponentType<{ isLoggedIn: boolean }>
+) => {
+  const WithOptimisticCheck = (props: T) => {
+    const isLoggedIn = await isLoggedIn();
+    if (!isLoggedIn) {
+      redirect("/login");
+    }
+    return <Component {...props} isLoggedIn={isLoggedIn} />;
+  };
+  return WithOptimisticCheck;
+};
+```
+
+As you can see, the `isLoggedIn` function only checks the token validity. It does not retrieve the user object from the database.
+
+Then we can use this function in any React Server Components:
+
+```tsx title="page.tsx" lineNumbers
+const Page = async ({ isLoggedIn }: { isLoggedIn: boolean }) => {
+  return (
+    <div>
+      <h1>Membership Rules</h1>
+    </div>
+  );
+};
+
+export default withOptimisticCheck(Page);
+```
+
+### Avoid proxy.js
+
+Proxy in Next.js, formerly called middleware, is a way to intercept requests and responses. As mentioned in the [official documentation](https://nextjs.org/docs/app/guides/authentication#optimistic-checks-with-proxy-optional), you may optionally run an optimistic check with a proxy.
+
+However we must avoid using proxy if possible for the following reasons:
+
+- proxy is run on every request by default, including static files requests like images, fonts, etc. To solve this, we need to make sure to export the `config` object with the correct `matcher` option.
+- even when you have configured the `matcher` option correctly, proxy is still run even on the prefetched routes. If a certain page renders multiple "Link" components, the proxy will be run multiple times because Next.js prefetches the routes. This will increase the cost of running the system especially in serverless environment. To solve this, we need to make sure the links are not prefetched by setting the `prefetch` option to `false`.
+- authorization is better to be performed as close as possible to the resource to make the code easier to reason about, to maintain, and to debug. Proxy "lives" outside of the component tree. In serverless environment like Vercel, the proxy even sometimes runs on CDN. Having authorization check in proxy will make it harder to reason about the authorization logic.
+
+## What to guard
+
+In Next.js with App router, we **must** guard the following:
+
+- all server functions and server actions (files with `use server` directive) that are not public end points.
+- all route handlers (`route.ts` files) that are not public end points.
+- all page components (`page.tsx` files) that are not public pages.
+
+And the following should be guarded for additional security:
+
+- all RSC that should not be rendered if the user is not authenticated.
+- all server-side functions that should not be executed if the user is not authenticated.
+
+## Ground Rules
+
+|     | Action                                                                                                                 |
+| --- | ---------------------------------------------------------------------------------------------------------------------- |
+| ✅  | Create `getUser` helper function to check if the user is authenticated and retrieve the user object from the database. |
+| ✅  | Create `isLoggedIn` helper function to check if the user is authenticated optimistically.                              |
+| ✅  | Create HOC to guard the server functions and RSC                                                                       |
