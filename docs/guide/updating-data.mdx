@@ -60,6 +60,12 @@ export const toggleFavorite = async (postId: string) => {
 };
 ```
 
+<Callout type="info" title="Good to know">
+  The file that contains the server function should have the `"use server"`
+  directive at the top which causes every exported function in the file will be
+  callable from the client component.
+</Callout>
+
 Then we can call the server function from the client component like this:
 
 ```tsx title="toggle-favorite.client.ts" lineNumbers
@@ -101,9 +107,9 @@ export const ToggleFavorite = ({ postId }: { postId: string }) => {
 ```
 
 <Callout type="info" title="Good to know">
-  The file that contains the server function should have the `"use server"`
-  directive at the top which causes every exported function in the file will be
-  callable from the client component.
+  We call the server function by wrapping it in a `startTransition` function.
+  This way we can show a loading state to the user while the operation is being
+  performed.
 </Callout>
 
 As you can see, both the client and the server sides are strongly typed. The server function's input and output are known to the client component. This means that the client code we write won't have missing or incorrect fields when sending the request to the server. We can also be sure that the response handling code in the client component won't have any unexpected properties. If the input or output is changed in the server function, the client code will not compile.
@@ -111,7 +117,7 @@ As you can see, both the client and the server sides are strongly typed. The ser
 <Callout type="info" title="Good to know">
   Server function in Next.js is tightly integrated with Next.js' caching and
   rendering which makes it possible to perform mutation and see the updated data
-  in the UI without having to refresh the page. As such, it has one limitation:
+  in the UI without having to refresh the page. However, it has one limitation:
   subsequent server function calls are executed sequentially. As of this
   writing, this limitation is not yet addressed.
 </Callout>
@@ -201,7 +207,7 @@ import { toggleFavorite } from "./toggle-favorite.action";
 const useToggleFavorite = (postId: string, isFavorite: boolean) => {
   const [isPending, startTransition] = useTransition();
   // [!code highlight:6]
-  const [optimisticFavorite, setOptimisticFavorite] = useOptimistic(
+  const [optimisticFavorite, toggleOptimisticFavorite] = useOptimistic(
     isFavorite,
     (_currentState, _: void) => {
       return !_currentState;
@@ -210,7 +216,7 @@ const useToggleFavorite = (postId: string, isFavorite: boolean) => {
 
   const handleToggle = async () => {
     startTransition(async () => {
-      setOptimisticFavorite();
+      toggleOptimisticFavorite();
 
       const result = await toggleFavorite(postId);
       if (result.ok === 1) {
@@ -432,7 +438,7 @@ export const handler: HandlerFunc<
 };
 ```
 
-Upon running the `route-next-gen` command, it will generate two server function related files:
+Upon running the `route-next-gen --server-function` command, it will generate two server function related files:
 
 - `app/api/login/server-function.ts`
 - `app/api/login/use-server-function.ts`
@@ -572,7 +578,7 @@ const Component = () => {
 
 ## Security
 
-Server function and server action are basically a public end point that can be called from the client component. As such, you should always authorize and validate the data that is sent from the client to prevent unauthorized access and data manipulation. When using `route-next-gen`, you have to always include the user function in the request validator to authorize the request.
+Server function and server action are basically a public end point that can be called from the client component. As such, you should always authorize and validate the data that is sent from the client to prevent unauthorized access and data manipulation. When using `route-next-gen`, you have to **always** include the user function in the request validator to authorize the request.
 
 ## Ground Rules
 
