@@ -30,6 +30,8 @@ This vulnerability happens because communication between the client and the serv
 
 With Server Functions, we can simply create a strongly typed function and directly call it from the client component. React and Next.js handle the heavy lifting of actually calling the server function and handling the response in the background.
 
+### Creating and using
+
 For example, we have a component that allows the user to toggle the favorite status of a post. We can create a server function to handle the toggle action.
 
 ```tsx title="toggle-favorite.action.ts" lineNumbers
@@ -122,7 +124,7 @@ As you can see, both the client and the server sides are strongly typed. The ser
   writing, this limitation is not yet addressed.
 </Callout>
 
-## Showing updated data
+### Showing updated data
 
 After updating data, we often need to show the updated data in the UI. For example, we have this page component in `/updating-data`:
 
@@ -189,6 +191,13 @@ export const toggleFavorite = async (postId: string) => {
 ```
 
 If you notice, this approach doesn't require any code in the client component. When the data is successfully updated, we don't need to write code to update the UI to reflect the updated data or to synchronize the data between the client and the server. We just need to tell the server to return the fresh data. The source of truth of data is from the server.
+
+### When not to use
+
+There are cases where it's not preferable to use server function to update data due to the limitation of Next.js implementation.
+
+- Server function calls are executed sequentially. If you call a server function multiple times in a row, the server function calls will be executed sequentially. This can slow down the user experience. This is because Next.js doesn't want the UI to be out of sync due to race condition. If you need to call a server function multiple times in a row in a short period of time, you should use route handler instead.
+- Server function calls cannot be cancelled midway. Generally this is not an issue because when updating data, we usually don't want to cancel the operation midway. But if you need to cancel the operation midway, you should use route handler instead because you can use `AbortController` to cancel a `fetch` request.
 
 ## Optimistic update
 
@@ -586,3 +595,4 @@ Server function and server action are basically a public end point that can be c
 | --- | --------------------------------------------------------------------------------------------------------------------- |
 | ✅  | Never write the server function and/or server action code manually. Always use `route-next-gen` to generate the code. |
 | ✅  | Use the generated custom hooks to call the end point from a client component in the Next.js app.                      |
+| ✅  | Understand when not to use server function and use route handler instead.                                             |
