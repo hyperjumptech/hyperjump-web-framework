@@ -457,9 +457,797 @@ Use controlled inputs when all three conditions above are not met.
 
 There are many third party form libraries that can help you manage forms in a more declarative way. For example, [React Hook Form](https://react-hook-form.com/) and [Formik](https://formik.org/).
 
-<Callout type="info" title="TODO">
-  Discuss and write down when to use third party form libraries.
-</Callout>
+#### When to use third party form libraries
+
+1. Real time / instant validation of input values.
+
+There are cases where an input value is required to be validated immediately without having to wait for the user to submit the form. For example:
+
+```tsx title="email-form.tsx" lineNumbers
+"use client";
+
+import { useForm } from "react-hook-form";
+import { useState } from "react";
+
+// Server function to check if email exists
+async function checkEmailExists(email: string): Promise<boolean> {
+  const response = await fetch("/api/check-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await response.json();
+  return data.exists;
+}
+
+export default function EmailForm() {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isValidating },
+    setError,
+    clearErrors,
+  } = useForm();
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+
+  const validateEmail = async (email: string) => {
+    if (!email) return "Email is required";
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return "Invalid email format";
+    }
+
+    setIsCheckingEmail(true);
+    try {
+      const exists = await checkEmailExists(email);
+      if (exists) {
+        return "This email is already registered";
+      }
+      return true;
+    } catch (error) {
+      return "Failed to validate email";
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  const onSubmit = async (data: any) => {
+    // Send the payload to the server
+    await fetch("/api/check-email", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          {...register("email", {
+            validate: validateEmail,
+          })}
+          className={`mt-1 block w-full rounded-md border ${
+            errors.email ? "border-red-500" : "border-gray-300"
+          } px-3 py-2`}
+        />
+        {isCheckingEmail && (
+          <p className="mt-1 text-sm text-gray-500">Checking email...</p>
+        )}
+        {errors.email && (
+          <p className="mt-1 text-sm text-red-600">
+            {errors.email.message as string}
+          </p>
+        )}
+      </div>
+      <button
+        type="submit"
+        disabled={isValidating || isCheckingEmail}
+        className="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+      >
+        {isValidating || isCheckingEmail ? "Validating..." : "Submit"}
+      </button>
+    </form>
+  );
+}
+```
+
+The example above validates if the email is not duplicated with the existing emails in the database. This is a good use case for third party form libraries, as it can show the validation error UI feedbacks such as red borders, error message, etc. immediately without having to wait for the user to submit the form.
+
+2. Conditional rendering of input fields.
+
+There are cases where you want to conditionally render an input field based on the value of another input field. For example, take a look at this case of activity creation form:
+
+a. There is a field called `type`.
+b. The value of `type` is either "event", "regular", and "project"
+
+- If the value of `type` is "event", then there should be an array of fields for the event dates.
+- If the value of `type` is "regular", then there should be an array of fields for the regular schedules per day, along with the start and end time of the whole activity period.
+- If the value of `type` is "project", then there should be a field for the start and end date of the project.
+
+```tsx title="activity-form.tsx" lineNumbers
+"use client";
+
+import { useForm, useFieldArray } from "react-hook-form";
+
+type ActivityType = "event" | "regular" | "project";
+
+interface ActivityFormData {
+  name: string;
+  type: ActivityType;
+  // Event fields
+  eventDates?: { date: string }[];
+  // Regular fields
+  regularSchedules?: {
+    day: string;
+    startTime: string;
+    endTime: string;
+  }[];
+  activityStartDate?: string;
+  activityEndDate?: string;
+  // Project fields
+  projectStartDate?: string;
+  projectEndDate?: string;
+}
+
+export default function ActivityForm() {
+  const { register, control, watch, handleSubmit } = useForm<ActivityFormData>({
+    defaultValues: {
+      name: "",
+      type: "event",
+      eventDates: [{ date: "" }],
+      regularSchedules: [{ day: "Monday", startTime: "", endTime: "" }],
+    },
+  });
+
+  const activityType = watch("type");
+
+  const {
+    fields: eventDateFields,
+    append: appendEventDate,
+    remove: removeEventDate,
+  } = useFieldArray({
+    control,
+    name: "eventDates",
+  });
+
+  const {
+    fields: scheduleFields,
+    append: appendSchedule,
+    remove: removeSchedule,
+  } = useFieldArray({
+    control,
+    name: "regularSchedules",
+  });
+
+  const onSubmit = (data: ActivityFormData) => {
+    console.log("Form submitted:", data);
+    // Remove the unnecessary fields from the payload
+    switch (activityType) {
+      case "event":
+        return {
+          name: data.name,
+          eventDates: data.eventDates,
+        };
+      case "regular":
+        return {
+          name: data.name,
+          regularSchedules: data.regularSchedules,
+          activityStartDate: data.activityStartDate,
+          activityEndDate: data.activityEndDate,
+        };
+      case "project":
+        return {
+          name: data.name,
+          projectStartDate: data.projectStartDate,
+          projectEndDate: data.projectEndDate,
+        };
+    }
+
+    // Send the payload to the server
+    await fetch("/api/activities", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium">
+          Activity Name
+        </label>
+        <input
+          id="name"
+          {...register("name", { required: true })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="type" className="block text-sm font-medium">
+          Activity Type
+        </label>
+        <select
+          id="type"
+          {...register("type")}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        >
+          <option value="event">Event</option>
+          <option value="regular">Regular</option>
+          <option value="project">Project</option>
+        </select>
+      </div>
+
+      {/* Conditional fields based on activity type */}
+      {activityType === "event" && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Event Dates</label>
+          {eventDateFields.map((field, index) => (
+            <div key={field.id} className="flex gap-x-2 gap-y-2">
+              <input
+                type="date"
+                {...register(`eventDates.${index}.date` as const)}
+                className="block w-full rounded-md border border-gray-300 px-3 py-2"
+              />
+              <button
+                type="button"
+                onClick={() => removeEventDate(index)}
+                className="rounded-md bg-red-500 px-3 py-2 text-white hover:bg-red-600"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => appendEventDate({ date: "" })}
+            className="rounded-md bg-green-500 px-3 py-2 text-white hover:bg-green-600"
+          >
+            Add Event Date
+          </button>
+        </div>
+      )}
+
+      {activityType === "regular" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            <div>
+              <label className="block text-sm font-medium">
+                Activity Start Date
+              </label>
+              <input
+                type="date"
+                {...register("activityStartDate")}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">
+                Activity End Date
+              </label>
+              <input
+                type="date"
+                {...register("activityEndDate")}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">
+              Regular Schedules
+            </label>
+            {scheduleFields.map((field, index) => (
+              <div key={field.id} className="space-y-2 rounded border p-3">
+                <div className="grid grid-cols-3 gap-x-2 gap-y-2">
+                  <select
+                    {...register(`regularSchedules.${index}.day` as const)}
+                    className="rounded-md border border-gray-300 px-3 py-2"
+                  >
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                  <input
+                    type="time"
+                    {...register(
+                      `regularSchedules.${index}.startTime` as const
+                    )}
+                    className="rounded-md border border-gray-300 px-3 py-2"
+                  />
+                  <input
+                    type="time"
+                    {...register(`regularSchedules.${index}.endTime` as const)}
+                    className="rounded-md border border-gray-300 px-3 py-2"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeSchedule(index)}
+                  className="rounded-md bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600"
+                >
+                  Remove Schedule
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                appendSchedule({ day: "Monday", startTime: "", endTime: "" })
+              }
+              className="rounded-md bg-green-500 px-3 py-2 text-white hover:bg-green-600"
+            >
+              Add Schedule
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activityType === "project" && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <div>
+            <label className="block text-sm font-medium">
+              Project Start Date
+            </label>
+            <input
+              type="date"
+              {...register("projectStartDate")}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">
+              Project End Date
+            </label>
+            <input
+              type="date"
+              {...register("projectEndDate")}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+            />
+          </div>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        className="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+      >
+        Create Activity
+      </button>
+    </form>
+  );
+}
+```
+
+This is a good use case for third party form libraries, as it can handle the conditional rendering of input fields and preprocess the payload data before sending it to the server.
+
+3. Dynamic form arrays
+
+There are cases where you want to dynamically add or remove input fields in a form. For example, take a look at this case of inputting divisions in an activity creation form:
+
+a. There is a field called `divisions`.
+b. The value of `divisions` is an array of objects.
+c. Each object has a `name`, `description`, and `number_of_volunteers_needed` fields.
+d. The user can add or remove divisions by clicking a button.
+
+```tsx title="divisions-form.tsx" lineNumbers
+"use client";
+
+import { useForm, useFieldArray } from "react-hook-form";
+
+interface Division {
+  name: string;
+  description: string;
+  number_of_volunteers_needed: number;
+}
+
+interface DivisionsFormData {
+  activityName: string;
+  divisions: Division[];
+}
+
+export default function DivisionsForm() {
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<DivisionsFormData>({
+    defaultValues: {
+      activityName: "",
+      divisions: [
+        {
+          name: "",
+          description: "",
+          number_of_volunteers_needed: 0,
+        },
+      ],
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "divisions",
+  });
+
+  const onSubmit = async (data: DivisionsFormData) => {
+    // Preprocess the payload before sending to server
+    const payload = {
+      activityName: data.activityName,
+      divisions: data.divisions.filter(
+        (division) =>
+          division.name.trim() !== "" &&
+          division.number_of_volunteers_needed > 0
+      ),
+    };
+
+    console.log("Processed payload:", payload);
+
+    // Send to server
+    await fetch("/api/activities", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div>
+        <label htmlFor="activityName" className="block text-sm font-medium">
+          Activity Name
+        </label>
+        <input
+          id="activityName"
+          {...register("activityName", {
+            required: "Activity name is required",
+          })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+        {errors.activityName && (
+          <p className="mt-1 text-sm text-red-600">
+            {errors.activityName.message}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Divisions</h3>
+          <button
+            type="button"
+            onClick={() =>
+              append({
+                name: "",
+                description: "",
+                number_of_volunteers_needed: 0,
+              })
+            }
+            className="rounded-md bg-blue-500 px-4 py-2 text-sm text-white hover:bg-blue-600"
+          >
+            Add Division
+          </button>
+        </div>
+
+        {fields.map((field, index) => (
+          <div
+            key={field.id}
+            className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-gray-700">
+                Division {index + 1}
+              </h4>
+              <button
+                type="button"
+                onClick={() => remove(index)}
+                disabled={fields.length === 1}
+                className="rounded-md bg-red-500 px-3 py-1 text-sm text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+
+            <div>
+              <label
+                htmlFor={`divisions.${index}.name`}
+                className="block text-sm font-medium"
+              >
+                Division Name
+              </label>
+              <input
+                id={`divisions.${index}.name`}
+                {...register(`divisions.${index}.name` as const, {
+                  required: "Division name is required",
+                })}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                placeholder="e.g., Registration Team"
+              />
+              {errors.divisions?.[index]?.name && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.divisions[index]?.name?.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor={`divisions.${index}.description`}
+                className="block text-sm font-medium"
+              >
+                Description
+              </label>
+              <textarea
+                id={`divisions.${index}.description`}
+                {...register(`divisions.${index}.description` as const, {
+                  required: "Description is required",
+                })}
+                rows={3}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                placeholder="Describe the division's responsibilities..."
+              />
+              {errors.divisions?.[index]?.description && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.divisions[index]?.description?.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor={`divisions.${index}.number_of_volunteers_needed`}
+                className="block text-sm font-medium"
+              >
+                Number of Volunteers Needed
+              </label>
+              <input
+                id={`divisions.${index}.number_of_volunteers_needed`}
+                type="number"
+                {...register(
+                  `divisions.${index}.number_of_volunteers_needed` as const,
+                  {
+                    required: "Number of volunteers is required",
+                    min: {
+                      value: 1,
+                      message: "At least 1 volunteer is required",
+                    },
+                    valueAsNumber: true,
+                  }
+                )}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                placeholder="0"
+              />
+              {errors.divisions?.[index]?.number_of_volunteers_needed && (
+                <p className="mt-1 text-sm text-red-600">
+                  {
+                    errors.divisions[index]?.number_of_volunteers_needed
+                      ?.message
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {fields.length === 0 && (
+          <p className="text-center text-sm text-gray-500">
+            No divisions added yet. Click "Add Division" to get started.
+          </p>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-x-3 gap-y-2">
+        <button
+          type="button"
+          onClick={() => {
+            // Reset form or navigate away
+          }}
+          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="rounded-md bg-green-500 px-4 py-2 text-white hover:bg-green-600"
+        >
+          Create Activity
+        </button>
+      </div>
+    </form>
+  );
+}
+```
+
+This is a good use case for third party form libraries, as it can handle the dynamic form arrays and preprocess the payload data before sending it to the server.
+
+#### Hybrid approach between third party form libraries and server functions
+
+You can use a hybrid approach between third party form libraries and server functions. For example, you can use React Hook Form to handle the client side validation, and call the server function to handle the server side validation and data processing.
+
+```tsx title="registration-form.tsx" lineNumbers
+// Client Component
+"use client";
+
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { useEffect } from "react";
+import { registerUser } from "./actions"; // This is the server function
+import FormSchema from "./form-schema";
+
+interface RegistrationFormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  recaptcha: string;
+}
+
+export default function RegistrationForm() {
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<RegistrationFormData>();
+
+  const password = watch("password");
+
+  useEffect(() => {
+    // Load reCAPTCHA script
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js?render=YOUR_SITE_KEY";
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  // React Hook Form will handle the submit event
+  const onSubmit = async (data: RegistrationFormData) => {
+    try {
+      // Execute reCAPTCHA
+      const token = await window.grecaptcha.execute("YOUR_SITE_KEY", {
+        action: "register",
+      });
+
+      // Set the reCAPTCHA token
+      const dataWithRecaptcha = {
+        ...data,
+        recaptcha: token,
+      };
+
+      // Validate the input values in the client side first
+      const validatedData = FormSchema.safeParse(dataWithRecaptcha);
+      if (!validatedData.success) {
+        toast.error(validatedData.error.message);
+        return;
+      }
+
+      // If valid, call the server function
+      await registerUser(validatedData.data);
+      toast.success("Registration successful!");
+    } catch (error) {
+      toast.error("Registration failed. Please try again.");
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium">
+          Name
+        </label>
+        <input
+          id="name"
+          type="text"
+          {...register("name", {
+            required: "Name is required",
+            minLength: {
+              value: 2,
+              message: "Name must be at least 2 characters",
+            },
+          })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+        {errors.name && (
+          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="email" className="block text-sm font-medium">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          {...register("email", {
+            required: "Email is required",
+            pattern: {
+              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+              message: "Invalid email format",
+            },
+          })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+        {errors.email && (
+          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="password" className="block text-sm font-medium">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          {...register("password", {
+            required: "Password is required",
+            minLength: {
+              value: 8,
+              message: "Password must be at least 8 characters",
+            },
+            pattern: {
+              value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+              message:
+                "Password must contain at least one uppercase, one lowercase, and one number",
+            },
+          })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+        {errors.password && (
+          <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="confirmPassword" className="block text-sm font-medium">
+          Confirm Password
+        </label>
+        <input
+          id="confirmPassword"
+          type="password"
+          {...register("confirmPassword", {
+            required: "Please confirm your password",
+            validate: (value) => value === password || "Passwords do not match",
+          })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+        />
+        {errors.confirmPassword && (
+          <p className="mt-1 text-sm text-red-600">
+            {errors.confirmPassword.message}
+          </p>
+        )}
+      </div>
+
+      {/* Hidden reCAPTCHA field */}
+      <input type="hidden" {...register("recaptcha")} />
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+      >
+        {isSubmitting ? "Registering..." : "Register"}
+      </button>
+    </form>
+  );
+}
+```
 
 ## Compound pattern
 
