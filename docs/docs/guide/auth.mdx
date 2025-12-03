@@ -13,9 +13,9 @@ There are million of ways to verify the identity of the user these days includin
 
 The most common way is by issuing a token and setting it as a secure same-site HTTP-only cookie in the response:
 
-- secure: This ensures that the cookie is only sent to the server over HTTPS.
-- same-site: This ensures that the cookie is only sent to the server from the same site, which prevents CSRF attacks.
-- HTTP-only: This ensures that the cookie is not accessible to JavaScript running in the browser, which prevents XSS attacks.
+- secure: This ensures that the cookie is only sent to the server over HTTPS to protect against man-in-the-middle (MTITM) attacks.
+- same-site: This ensures that the cookie is only sent to the server from the same site, which prevents cross-site request forgery (CSRF) attacks. Preferably set to `strict` to prevent CSRF attacks.
+- HTTP-only: This ensures that the cookie is not accessible to JavaScript running in the browser, which prevents cross-site scripting (XSS) attacks.
 
 This way, the token is stored in the browser and is sent to the server with each request. The server can then verify the token to authenticate the user.
 
@@ -133,7 +133,11 @@ const Posts = async () => {
 export default Posts;
 ```
 
-In the example above, even though the `getUser` function is called three times, it will only be executed once because of the `cache` function.
+<Callout type="info" title="Good to know">
+  In the example above, even though the `getUser` function is called three
+  times, it will only be executed once because of the
+  [cache](https://react.dev/reference/react/cache) function.
+</Callout>
 
 Or in any server-side functions:
 
@@ -280,15 +284,17 @@ Optimistic check is useful to keep our app secure but still fast and not using t
 
 ### Avoid proxy.js
 
-Proxy in Next.js, formerly called middleware, is a way to intercept requests and responses. As mentioned in the [official documentation](https://nextjs.org/docs/app/guides/authentication#optimistic-checks-with-proxy-optional), you may optionally run an optimistic check with a proxy.
+[Proxy](https://nextjs.org/docs/app/api-reference/file-conventions/proxy) in Next.js, formerly called middleware, is a way to run code in the server before the request is completed. As mentioned in the [official documentation](https://nextjs.org/docs/app/guides/authentication#optimistic-checks-with-proxy-optional), you may optionally run an optimistic check with a proxy.
 
-However we must avoid using proxy if possible for the following reasons:
+However we must avoid using proxy when possible for the following reasons:
 
-- proxy is run on every request by default, including static files requests like images, fonts, etc. To solve this, we need to make sure to export the `config` object with the correct `matcher` option.
-- even when you have configured the `matcher` option correctly, proxy is still run even on the prefetched routes. If a certain page renders multiple "Link" components, the proxy will be run multiple times because Next.js prefetches the routes. This will increase the cost of running the system especially in serverless environment. To solve this, we need to make sure the links are not prefetched by setting the `prefetch` option to `false`.
-- authorization is better to be performed as close as possible to the resource to make the code easier to reason about, to maintain, and to debug. Proxy "lives" outside of the component tree. In serverless environment like Vercel, the proxy even sometimes runs on CDN. Having authorization check in proxy will make it harder to reason about the authorization logic.
+- Proxy is run on every request by default, including static files requests like images, fonts, etc. To solve this, we need to make sure to export the `config` object with the correct `matcher` option.
+- Even when you have configured the `matcher` option correctly, proxy is still run even on the prefetched routes. If a certain page renders multiple "Link" components, the proxy will be run multiple times because Next.js prefetches the routes. This will increase the cost of running the system especially in serverless environment. To solve this, we need to make sure the links are not prefetched by setting the `prefetch` option to `false`.
+- Authorization is better to be performed as close as possible to the resource to make the code easier to reason about, to maintain, and to debug. Proxy "lives" outside of the component tree. In serverless environment like Vercel, the proxy even sometimes runs on CDN. Having authorization check in proxy will make it harder to reason about the authorization logic.
 
 ## What to guard
+
+### The must
 
 In Next.js with App router, we **must** guard the following:
 
@@ -296,10 +302,14 @@ In Next.js with App router, we **must** guard the following:
 - all route handlers (`route.ts` files) that are not public end points.
 - all page components (`page.tsx` files) that are not public pages.
 
+### The should
+
 And the following should be guarded for additional security:
 
 - all RSC that should not be rendered if the user is not authenticated.
 - all server-side functions that should not be executed if the user is not authenticated.
+
+In both cases, we still should guard them even when the `page.tsx` and `route.ts` file that encapsulates them have been guarded to prevent accidental usage in unguarded `page.tsx` and `route.ts` files.
 
 ## Ground Rules
 
