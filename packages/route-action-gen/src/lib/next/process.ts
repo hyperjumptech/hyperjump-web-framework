@@ -1,10 +1,153 @@
 import { headers } from "next/headers";
-import { createRequestValidator, HandlerFunc, errorResponse } from "..";
+import {
+  createRequestValidator,
+  HandlerFunc,
+  errorResponse,
+  AuthFunc,
+} from "..";
 import { z } from "zod";
 
+type RequestValidator = ReturnType<typeof createRequestValidator>;
+
+const authenticateUser = async (
+  auth: AuthFunc<any> | undefined,
+  request?: Request
+): Promise<{ user: any } | { error: ReturnType<typeof errorResponse> }> => {
+  if (!auth) {
+    return { user: null };
+  }
+
+  try {
+    const user = request ? await auth(request) : await auth();
+    return { user };
+  } catch (error) {
+    return { error: errorResponse("Unauthorized", undefined, 401) };
+  }
+};
+
+const validateHeaders = async (
+  headersValidator: z.ZodType | undefined,
+  headersSource: Headers
+): Promise<any> => {
+  if (!headersValidator) {
+    return null;
+  }
+
+  const headersObj: Record<string, string> = {};
+  for (const [key, value] of headersSource.entries()) {
+    headersObj[key.toLowerCase()] = value;
+  }
+  return await headersValidator.parseAsync(headersObj);
+};
+
+const validateHeadersFromNext = async (
+  headersValidator: z.ZodType | undefined
+): Promise<any> => {
+  if (!headersValidator) {
+    return null;
+  }
+
+  const headersStore = await headers();
+  return validateHeaders(headersValidator, headersStore);
+};
+
+const parseRequestBody = async (request: Request): Promise<any> => {
+  const requestType = request.headers.get("content-type");
+
+  if (requestType?.includes("application/json")) {
+    return await request.json();
+  }
+
+  if (
+    requestType?.includes("application/x-www-form-urlencoded") ||
+    requestType?.includes("multipart/form-data")
+  ) {
+    const formData = await request.formData();
+    return Object.fromEntries(formData.entries());
+  }
+
+  if (requestType?.includes("text/plain")) {
+    return await request.text();
+  }
+
+  return null;
+};
+
+const validateBodyFromRequest = async (
+  bodyValidator: z.ZodType | undefined,
+  request: Request
+): Promise<any> => {
+  const method = request?.method?.toLowerCase();
+  const isBodyMethod =
+    method === "post" || method === "put" || method === "patch";
+
+  if (!bodyValidator || !isBodyMethod) {
+    return null;
+  }
+
+  const requestBody = await parseRequestBody(request);
+  return await bodyValidator.parseAsync(requestBody);
+};
+
+const validateBodyFromFormData = async (
+  bodyValidator: z.ZodType | undefined,
+  formData: FormData | null
+): Promise<any> => {
+  if (!bodyValidator || !formData) {
+    return null;
+  }
+
+  return await bodyValidator.parseAsync(Object.fromEntries(formData.entries()));
+};
+
+const validateBodyFromPayload = async (
+  bodyValidator: z.ZodType | undefined,
+  payload: any
+): Promise<any> => {
+  if (!bodyValidator) {
+    return null;
+  }
+
+  return await bodyValidator.parseAsync(payload);
+};
+
+const validateParams = async (
+  paramsValidator: z.ZodType | undefined,
+  params: any
+): Promise<any> => {
+  if (!paramsValidator || !params) {
+    return null;
+  }
+
+  return await paramsValidator.parseAsync(params);
+};
+
+const validateSearchParams = async (
+  searchParamsValidator: z.ZodType | undefined,
+  request: Request
+): Promise<any> => {
+  if (!searchParamsValidator) {
+    return null;
+  }
+
+  const url = new URL(request.url);
+  const searchParamsObj: Record<string, string> = {};
+  for (const [key, value] of url.searchParams.entries()) {
+    searchParamsObj[key] = value;
+  }
+  return await searchParamsValidator.parseAsync(searchParamsObj);
+};
+
+/**
+ * Process a request and return a response. This is used to process a request for a Next.js App Router route.
+ * @param requestValidator
+ * @param responseValidator
+ * @param handler
+ * @returns A response object.
+ */
 export const processRequest =
   (
-    requestValidator: ReturnType<typeof createRequestValidator>,
+    requestValidator: RequestValidator,
     responseValidator: z.ZodType,
     handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
   ) =>
@@ -17,85 +160,22 @@ export const processRequest =
       searchParams: searchParamsValidator,
     } = requestValidator;
 
-    let user: any = null;
-    if (auth) {
-      try {
-        user = await auth(request);
-      } catch (error) {
-        return errorResponse("Unauthorized", undefined, 401);
-      }
+    const authResult = await authenticateUser(auth, request);
+    if ("error" in authResult) {
+      return authResult.error;
     }
+    const { user } = authResult;
 
-    const method = request?.method;
     const [
       validatedBody,
       validatedHeaders,
       validatedParams,
       validatedSearchParams,
     ] = await Promise.all([
-      new Promise(async (resolve) => {
-        if (
-          method &&
-          (method.toLowerCase() === "post" ||
-            method.toLowerCase() === "put" ||
-            method.toLowerCase() === "patch")
-        ) {
-          if (bodyValidator) {
-            const requestType = request.headers.get("content-type");
-            let requestBody: any = null;
-            if (requestType?.includes("application/json")) {
-              requestBody = await request.json();
-            } else if (
-              requestType?.includes("application/x-www-form-urlencoded")
-            ) {
-              const formData = await request.formData();
-              requestBody = Object.fromEntries(formData.entries());
-            } else if (requestType?.includes("multipart/form-data")) {
-              const formData = await request.formData();
-              requestBody = Object.fromEntries(formData.entries());
-            } else if (requestType?.includes("text/plain")) {
-              requestBody = await request.text();
-            }
-            resolve(await bodyValidator.parseAsync(requestBody));
-          } else {
-            resolve(null);
-          }
-        }
-      }),
-      new Promise(async (resolve) => {
-        if (headersValidator) {
-          const headersObj: Record<string, string> = {};
-          for (const [key, value] of request.headers.entries()) {
-            headersObj[key.toLowerCase()] = value;
-          }
-          resolve(await headersValidator.parseAsync(headersObj));
-        } else {
-          resolve(null);
-        }
-      }),
-      new Promise(async (resolve) => {
-        if (paramsValidator) {
-          if (params) {
-            resolve(await paramsValidator.parseAsync(params));
-          } else {
-            resolve(null);
-          }
-        } else {
-          resolve(null);
-        }
-      }),
-      new Promise(async (resolve) => {
-        if (searchParamsValidator) {
-          const url = new URL(request.url);
-          const searchParamsObj: Record<string, string> = {};
-          for (const [key, value] of url.searchParams.entries()) {
-            searchParamsObj[key] = value;
-          }
-          resolve(await searchParamsValidator.parseAsync(searchParamsObj));
-        } else {
-          resolve(null);
-        }
-      }),
+      validateBodyFromRequest(bodyValidator, request),
+      validateHeaders(headersValidator, request.headers),
+      validateParams(paramsValidator, params),
+      validateSearchParams(searchParamsValidator, request),
     ]);
 
     const data = {
@@ -106,13 +186,19 @@ export const processRequest =
       user,
     };
 
-    const response = await handler(data);
-    return response;
+    return await handler(data);
   };
 
+/**
+ * Process a form action and return a response. This is used to process a form action for a Next.js Form Actions. Only body and headers are validated.
+ * @param requestValidator
+ * @param responseValidator
+ * @param handler
+ * @returns A response object.
+ */
 export const processFormAction =
   (
-    requestValidator: ReturnType<typeof createRequestValidator>,
+    requestValidator: RequestValidator,
     responseValidator: z.ZodType,
     handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
   ) =>
@@ -123,39 +209,15 @@ export const processFormAction =
       headers: headersValidator,
     } = requestValidator;
 
-    let user: any = null;
-    if (auth) {
-      try {
-        user = await auth();
-      } catch (error) {
-        return errorResponse("Unauthorized", undefined, 401);
-      }
+    const authResult = await authenticateUser(auth);
+    if ("error" in authResult) {
+      return authResult.error;
     }
+    const { user } = authResult;
 
     const [validatedBody, validatedHeaders] = await Promise.all([
-      new Promise(async (resolve) => {
-        if (bodyValidator && formData) {
-          resolve(
-            await bodyValidator.parseAsync(
-              Object.fromEntries(formData.entries())
-            )
-          );
-        } else {
-          resolve(null);
-        }
-      }),
-      new Promise(async (resolve) => {
-        if (headersValidator) {
-          const headersObj: Record<string, string> = {};
-          const headersStore = await headers();
-          for (const [key, value] of headersStore.entries()) {
-            headersObj[key.toLowerCase()] = value;
-          }
-          resolve(await headersValidator.parseAsync(headersObj));
-        } else {
-          resolve(null);
-        }
-      }),
+      validateBodyFromFormData(bodyValidator, formData),
+      validateHeadersFromNext(headersValidator),
     ]);
 
     const data = {
@@ -166,13 +228,19 @@ export const processFormAction =
       user,
     };
 
-    const response = await handler(data);
-    return response;
+    return await handler(data);
   };
 
+/**
+ * Process a server function and return a response. This is used to process a server function for a Next.js Server Functions. Only body and headers are validated.
+ * @param requestValidator
+ * @param responseValidator
+ * @param handler
+ * @returns A response object.
+ */
 export const processServerFunction =
   (
-    requestValidator: ReturnType<typeof createRequestValidator>,
+    requestValidator: RequestValidator,
     responseValidator: z.ZodType,
     handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
   ) =>
@@ -183,35 +251,15 @@ export const processServerFunction =
       headers: headersValidator,
     } = requestValidator;
 
-    let user: any = null;
-    if (auth) {
-      try {
-        user = await auth();
-      } catch (error) {
-        return errorResponse("Unauthorized", undefined, 401);
-      }
+    const authResult = await authenticateUser(auth);
+    if ("error" in authResult) {
+      return authResult.error;
     }
+    const { user } = authResult;
 
     const [validatedBody, validatedHeaders] = await Promise.all([
-      new Promise(async (resolve) => {
-        if (bodyValidator) {
-          resolve(await bodyValidator.parseAsync(payload));
-        } else {
-          resolve(null);
-        }
-      }),
-      new Promise(async (resolve) => {
-        if (headersValidator) {
-          const headersObj: Record<string, string> = {};
-          const headersStore = await headers();
-          for (const [key, value] of headersStore.entries()) {
-            headersObj[key.toLowerCase()] = value;
-          }
-          resolve(await headersValidator.parseAsync(headersObj));
-        } else {
-          resolve(null);
-        }
-      }),
+      validateBodyFromPayload(bodyValidator, payload),
+      validateHeadersFromNext(headersValidator),
     ]);
 
     const data = {
@@ -222,6 +270,5 @@ export const processServerFunction =
       user,
     };
 
-    const response = await handler(data);
-    return response;
+    return await handler(data);
   };

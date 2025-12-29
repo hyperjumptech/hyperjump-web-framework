@@ -4,10 +4,8 @@ import { createRequestValidator, HandlerFunc, HandlerResponse } from "../..";
 import { processFormAction, processServerFunction } from "../process.js";
 
 /**
- * Creates a form action function that wraps the action function with the admin auth and validator functions.
- * The action function is wrapped with the admin auth function to ensure that the user is authenticated and has the required role.
- * The action function is wrapped with the validator function to ensure that the input data is valid.
- * The form action function is then returned.
+ * Creates a form action function for Next.js Form Actions which can called from the client component using useActionState hook.
+ * @see https://nextjs.org/docs/app/getting-started/updating-data#showing-a-pending-state
  *
  * @example
  *
@@ -38,10 +36,7 @@ export function createFormAction(
 }
 
 /**
- * Creates a server function that wraps the action function with the auth and validator functions.
- * The action function is wrapped with the auth function to ensure that the user is authenticated.
- * The action function is wrapped with the validator function to ensure that the input data is valid.
- * The server function is then returned.
+ * Creates a server function for Next.js Server Functions.
  *
  * @example
  */
