@@ -13,7 +13,7 @@ export const createRoute = <TResponse extends z.ZodType, Input>(
   requestValidator: ReturnType<typeof createRequestValidator>,
   responseValidator: TResponse,
   handler: HandlerFunc<typeof requestValidator, TResponse, Input>
-) => {
+): ((request: Request, context?: any) => Promise<Response>) => {
   return async (request: Request, context?: any) => {
     const processFunc = processRequest(
       requestValidator,
@@ -22,6 +22,13 @@ export const createRoute = <TResponse extends z.ZodType, Input>(
     );
     const params = await context?.params;
     const response = await processFunc(request, params);
-    return response;
+
+    if (response.status === false) {
+      return new Response(response.message, { status: response.statusCode });
+    }
+
+    return new Response(JSON.stringify(response.data), {
+      status: response.statusCode,
+    });
   };
 };
