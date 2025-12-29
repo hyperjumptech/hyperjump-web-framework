@@ -144,7 +144,7 @@ Or in any server-side functions:
 ```ts title="server-function.ts" lineNumbers
 "use server";
 import { getUser } from "./lib/user";
-import { errorResponse } from "@hyperjumptech/route-next-gen/lib";
+import { errorResponse } from "@hyperjumptech/route-action-gen/lib";
 
 export const handler = async () => {
   const user = await getUser();
@@ -177,7 +177,7 @@ Then we can use this function in any server-side functions:
 
 ```ts title="server-function.ts" lineNumbers
 import { withUser } from "./lib/user";
-import { errorResponse } from "@hyperjumptech/route-next-gen/lib";
+import { errorResponse } from "@hyperjumptech/route-action-gen/lib";
 
 const handler = async (user: User) => {
   return successResponse(200, { message: `Hello ${user.name}` });

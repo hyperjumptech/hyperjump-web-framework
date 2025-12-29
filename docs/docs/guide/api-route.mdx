@@ -10,10 +10,10 @@ If you must use route handler, this page provides some rules and conventions to 
 
 <Callout type="warn" title="Warning">
   The code generation tool is not yet available. This docs provides the
-  specifications for it. For now, we will call the tool `route-next-gen`.
+  specifications for it. For now, we will call the tool `route-action-gen`.
 </Callout>
 
-The main rule when creating a route handler is: **Do not write the route handler (route.ts) code manually**. There are a lot of boilerplate code that needs to be written for each route handler. Instead, create a `route.[get|post|put|delete|patch|options|head].config.ts` file to configure the route handler, then generate the `route.ts` file using `route-next-gen`. This way, every end point will be:
+The main rule when creating a route handler is: **Do not write the route handler (route.ts) code manually**. There are a lot of boilerplate code that needs to be written for each route handler. Instead, create a `route.[get|post|put|delete|patch|options|head].config.ts` file to configure the route handler, then generate the `route.ts` file using `route-action-gen`. This way, every end point will be:
 
 - **absolutely strongly typed**: Both the request and response will be strongly typed.
 - **consistent**: The code for each end point will have a consistent structure and naming convention.
@@ -21,7 +21,7 @@ The main rule when creating a route handler is: **Do not write the route handler
 
 For example, if we want to create a GET route handler for the `/api/posts` endpoint. We create a `route.get.config.ts` file in the `app/api/posts` directory. If we want to create a POST route handler for the `/api/posts` endpoint, we create a `route.post.config.ts` file in the `app/api/posts` directory.
 
-`route-next-gen` will generate several files in the same directory as the config file:
+`route-action-gen` will generate several files in the same directory as the config file:
 
 - `route.ts`: The route handler file that Next.js will use to handle the request.
 - `use-route-[get|post|put|delete|patch|options|head].ts`: A custom hook that can be used to fetch data from the route based on the method.
@@ -29,7 +29,7 @@ For example, if we want to create a GET route handler for the `/api/posts` endpo
 
 ### How it works
 
-When the `route-next-gen` command is run, it will search for all of the config files (`route.[get|post|put|delete|patch|options|head].config.ts` files) in the current directory and its subdirectories. Then it will generate the `route.ts`, `client.ts`, and `use-route-[get|post|put|delete|patch|options|head].ts` files for each config file. For example, if there are `route.get.config.ts` and `route.post.config.ts` in the `app/api/posts` directory, the `route-next-gen` will generate the following files:
+When the `route-action-gen` command is run, it will search for all of the config files (`route.[get|post|put|delete|patch|options|head].config.ts` files) in the current directory and its subdirectories. Then it will generate the `route.ts`, `client.ts`, and `use-route-[get|post|put|delete|patch|options|head].ts` files for each config file. For example, if there are `route.get.config.ts` and `route.post.config.ts` in the `app/api/posts` directory, the `route-action-gen` will generate the following files:
 
 - `app/api/posts/route.ts`
 - `app/api/posts/client.ts`
@@ -63,7 +63,7 @@ For example, if you want to only allow authenticated requests to the `/api/posts
 
 ```ts title="/api/posts/route.get.config.ts" lineNumbers
 import { z } from "zod";
-import type { AuthFunc } from "@hyperjumptech/route-next-gen/lib";
+import type { AuthFunc } from "@hyperjumptech/route-action-gen/lib";
 
 const auth: AuthFunc = async (request: Request) => {
   const user = await getUser(request);
@@ -111,7 +111,7 @@ export const requestValidator = createRequestValidator({
 });
 ```
 
-`route-next-gen` will generate code to turn the POST/PUT/PATCH request body into an object regardless of the content type (application/json, application/x-www-form-urlencoded, multipart/form-data), then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
+`route-action-gen` will generate code to turn the POST/PUT/PATCH request body into an object regardless of the content type (application/json, application/x-www-form-urlencoded, multipart/form-data), then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
 
 Implementation details:
 
@@ -135,7 +135,7 @@ export const requestValidator = createRequestValidator({
 });
 ```
 
-`route-next-gen` will generate code to turn the search params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
+`route-action-gen` will generate code to turn the search params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
 
 Implementation details based on the example above:
 
@@ -163,7 +163,7 @@ export const requestValidator = createRequestValidator({
 
 In the example above, a request to `/api/tags/123/authors/456/views/100` will pass the validation, but a request to `/api/tags/123/authors/456/views/abc` will fail because the `views` param must be a number and must be greater than 10.
 
-`route-next-gen` will generate code to turn the path params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
+`route-action-gen` will generate code to turn the path params into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
 
 ### Headers Validator
 
@@ -185,7 +185,7 @@ export const requestValidator = createRequestValidator({
 });
 ```
 
-`route-next-gen` will generate code to turn the headers into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
+`route-action-gen` will generate code to turn the headers into an object, then run the validator against the object. If the validation fails, it will return a 400 Bad Request response.
 
 In the example above, the `authorization` header must be present and must be equal to `Bearer ${process.env.API_KEY}`.
 
@@ -233,7 +233,7 @@ import {
   successResponse,
   errorResponse,
   HandlerFunc,
-} from "../../route-next-gen-lib";
+} from "../../route-action-gen-lib";
 import { getUser, User } from "./user";
 import { getPost, updatePost } from "./post";
 
@@ -287,7 +287,7 @@ export const handler: HandlerFunc<
 };
 ```
 
-In the example above, the config uses several helpers from `@hyperjumptech/route-next-gen/lib`:
+In the example above, the config uses several helpers from `@hyperjumptech/route-action-gen/lib`:
 
 - `createRequestValidator`: a helper function to create the `requestValidator` object.
 - `successResponse`: a helper function to create a response for success cases.
@@ -301,10 +301,10 @@ In the `handler` function, you should catch any errors and return a `HandlerResp
 
 ## Generated route.ts file
 
-For the example in the "Handler Function" section above, `route-next-gen` will generate the following `route.ts` file:
+For the example in the "Handler Function" section above, `route-action-gen` will generate the following `route.ts` file:
 
 ```ts title="/api/posts/[postId]/route.ts" lineNumbers
-/** THIS FILE IS AUTOMATICALLY GENERATED BY ROUTE-NEXT-GEN **/
+/** THIS FILE IS AUTOMATICALLY GENERATED BY route-action-gen **/
 import {
   handler,
   requestValidator,
@@ -313,7 +313,7 @@ import {
 import {
   getBodyFromRequest,
   errorResponse,
-} from "@hyperjumptech/route-next-gen/lib";
+} from "@hyperjumptech/route-action-gen/lib";
 import { z } from "zod";
 
 export const POST = async (
@@ -375,10 +375,10 @@ If other config files for other methods (POST, PUT, PATCH, DELETE, OPTIONS, HEAD
 
 ## Generated use-route-[method].ts file
 
-In order to actually call the generated end point, `route-next-gen` will also generate a `use-route-[method].ts` file in the same directory as the config file. This file will export a custom hook that can be used to fetch data from the route with a strongly typed response so you don't need to write the boilerplate code to call the end point yourself.
+In order to actually call the generated end point, `route-action-gen` will also generate a `use-route-[method].ts` file in the same directory as the config file. This file will export a custom hook that can be used to fetch data from the route with a strongly typed response so you don't need to write the boilerplate code to call the end point yourself.
 
 ```tsx title="/api/posts/[postId]/use-route-post.ts" lineNumbers
-/** THIS FILE IS AUTOMATICALLY GENERATED BY ROUTE-NEXT-GEN **/
+/** THIS FILE IS AUTOMATICALLY GENERATED BY route-action-gen **/
 import useSWR from "swr";
 import {
   paramsValidator,
@@ -547,7 +547,7 @@ export const PostEdit = ({ postId }: { postId: string }) => {
 The generated `use-route.ts` file above is essentially a client component that is specifically designed for React. For other JS/Node.js frameworks/apps/scripts, you can use the generated `client.ts` file to call the route handler from the server or browser.
 
 ```ts title="/api/posts/[postId]/client.ts" lineNumbers
-/** THIS FILE IS AUTOMATICALLY GENERATED BY ROUTE-NEXT-GEN **/
+/** THIS FILE IS AUTOMATICALLY GENERATED BY route-action-gen **/
 import {
   paramsValidator,
   bodyValidator,
@@ -586,16 +586,16 @@ export class RouteClient {
 
 ## Ignoring the generated files
 
-The generated files should be ignored by the version control system. When you run `route-next-gen` command, it will generate the files and add them to the `.gitignore` file if it is not already present.
+The generated files should be ignored by the version control system. When you run `route-action-gen` command, it will generate the files and add them to the `.gitignore` file if it is not already present.
 
 ## Ground Rules
 
 |     | Action                                                                                           |
 | --- | ------------------------------------------------------------------------------------------------ |
-| ✅  | Never write the `route.ts` file manually. Always use `route-next-gen` to generate the file.      |
+| ✅  | Never write the `route.ts` file manually. Always use `route-action-gen` to generate the file.    |
 | ✅  | Use the generated custom hooks to call the end point from a client component in the Next.js app. |
 | ✅  | Use the generated client file to call the end point from a non-React app.                        |
 
 ## Todos
 
-- Create `route-next-gen` tool to generate the code for API routes.
+- Create `route-action-gen` tool to generate the code for API routes.
