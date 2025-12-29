@@ -5,9 +5,9 @@ import {
   successResponse,
   errorResponse,
   HandlerFunc,
-} from "../../route-next-gen-lib";
-import { getUser, User } from "./user";
-import { getPost, updatePost } from "./post";
+} from "route-action-gen/lib";
+import { getUser, User } from "../user";
+import { getPost, updatePost } from "../post";
 
 // The body validator
 const bodyValidator = z.object({
@@ -21,8 +21,8 @@ const paramsValidator = z.object({
 });
 
 // The auth function to authorize the request
-const auth: AuthFunc<User> = async (request: Request) => {
-  const user = await getUser(request);
+const auth: AuthFunc<User> = async () => {
+  const user = await getUser();
   if (!user) throw new Error("Unauthorized");
   return user;
 };
@@ -42,17 +42,19 @@ export const responseValidator = z.object({
 // The handler function to handle the request
 export const handler: HandlerFunc<
   typeof requestValidator,
-  typeof responseValidator
+  typeof responseValidator,
+  undefined
 > = async (data) => {
   const { body, params, user } = data;
   const post = await getPost(params.postId);
   if (!post) {
-    return errorResponse(404, "Post not found");
+    return errorResponse("Post not found", undefined, 404);
   }
   if (post.userId !== user.id) {
     return errorResponse(
-      403,
-      "User does not have permission to update this post"
+      "User does not have permission to update this post",
+      undefined,
+      403
     );
   }
 
@@ -61,5 +63,5 @@ export const handler: HandlerFunc<
     content: body.content,
   });
 
-  return successResponse(200, { id: post.id });
+  return successResponse({ id: post.id });
 };

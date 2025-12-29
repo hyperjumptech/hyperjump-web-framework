@@ -1,0 +1,45 @@
+{
+  "name": "route-action-gen",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "route-action-gen": "dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./lib": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js",
+      "require": "./dist/lib/index.cjs"
+    },
+    "./lib/*": {
+      "types": "./dist/lib/*.d.ts",
+      "import": "./dist/lib/*.js",
+      "require": "./dist/lib/*.cjs"
+    }
+  },
+  "scripts": {
+    "test": "vitest --run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "next": "^15.5.9",
+    "glob": "^13.0.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/node": "^20",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@workspace/typescript-config": "workspace:*",
+    "vitest": "^2.0.5"
+  }
+}

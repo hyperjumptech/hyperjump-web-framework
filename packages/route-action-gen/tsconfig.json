@@ -1,0 +1,14 @@
+{
+  "extends": "@workspace/typescript-config/node16.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
+    "types": ["node"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "target": "ES2022"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}
