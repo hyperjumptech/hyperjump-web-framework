@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@workspace/ui/components/button";
-import { RouteClient } from "../api/posts/[postId]/client.gen";
+import { RouteClient } from "../api/posts/[postId]/.generated/client";
 
 export default function RouteDemoPage() {
   return (

@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@workspace/ui/components/button";
-import { useFormAction } from "../api/posts/[postId]/use-form-action.gen";
-import { formComponents } from "../api/posts/[postId]/form-components.gen";
+import { useFormAction } from "../api/posts/[postId]/.generated/use-form-action";
+import { formComponents } from "../api/posts/[postId]/.generated/form-components";
 import React from "react";
 
 export default function ServerFunctionDemoPage() {

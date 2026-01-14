@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@workspace/ui/components/button";
-import { useServerFunction } from "../api/posts/[postId]/use-server-function.gen";
+import { useServerFunction } from "../api/posts/[postId]/.generated/use-server-function";
 
 export default function ServerFunctionDemoPage() {
   const { fetchData, pending, error, data } = useServerFunction();
