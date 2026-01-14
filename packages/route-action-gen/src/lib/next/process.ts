@@ -6,6 +6,7 @@ import {
   AuthFunc,
 } from "..";
 import { z } from "zod";
+import { parseFormData } from "../node/form-data";
 
 type RequestValidator = ReturnType<typeof createRequestValidator>;
 
@@ -122,7 +123,7 @@ const validateParams = async (
   return await paramsValidator.parseAsync(params);
 };
 
-const validateSearchParams = async (
+const validateSearchParamsFromRequest = async (
   searchParamsValidator: z.ZodType | undefined,
   request: Request
 ): Promise<any> => {
@@ -175,7 +176,7 @@ export const processRequest =
       validateBodyFromRequest(bodyValidator, request),
       validateHeaders(headersValidator, request.headers),
       validateParams(paramsValidator, params),
-      validateSearchParams(searchParamsValidator, request),
+      validateSearchParamsFromRequest(searchParamsValidator, request),
     ]);
 
     const data = {
@@ -207,6 +208,8 @@ export const processFormAction =
       body: bodyValidator,
       user: auth,
       headers: headersValidator,
+      searchParams: searchParamsValidator,
+      params: paramsValidator,
     } = requestValidator;
 
     const authResult = await authenticateUser(auth);
@@ -215,16 +218,25 @@ export const processFormAction =
     }
     const { user } = authResult;
 
-    const [validatedBody, validatedHeaders] = await Promise.all([
-      validateBodyFromFormData(bodyValidator, formData),
+    const formDataObj = formData ? parseFormData(formData) : {};
+
+    const [
+      validatedBody,
+      validatedHeaders,
+      validatedSearchParams,
+      validatedParams,
+    ] = await Promise.all([
+      validateBodyFromPayload(bodyValidator, formDataObj["body"]),
       validateHeadersFromNext(headersValidator),
+      validateParams(searchParamsValidator, formDataObj["searchParams"]),
+      validateParams(paramsValidator, formDataObj["params"]),
     ]);
 
     const data = {
       body: validatedBody,
-      params: null,
+      params: validatedParams,
       headers: validatedHeaders,
-      searchParams: null,
+      searchParams: validatedSearchParams,
       user,
     };
 
@@ -232,7 +244,7 @@ export const processFormAction =
   };
 
 /**
- * Process a server function and return a response. This is used to process a server function for a Next.js Server Functions. Only body and headers are validated.
+ * Process a server function and return a response. This is used to process a server function for a Next.js Server Functions. Only body, params and search params are validated.
  * @param requestValidator
  * @param responseValidator
  * @param handler
@@ -244,11 +256,17 @@ export const processServerFunction =
     responseValidator: z.ZodType,
     handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
   ) =>
-  async (payload: any) => {
+  async (payload: {
+    body?: z.infer<NonNullable<typeof requestValidator.body>>;
+    params?: z.infer<NonNullable<typeof requestValidator.params>>;
+    searchParams?: z.infer<NonNullable<typeof requestValidator.searchParams>>;
+  }) => {
     const {
       body: bodyValidator,
       user: auth,
       headers: headersValidator,
+      params: paramsValidator,
+      searchParams: searchParamsValidator,
     } = requestValidator;
 
     const authResult = await authenticateUser(auth);
@@ -257,16 +275,26 @@ export const processServerFunction =
     }
     const { user } = authResult;
 
-    const [validatedBody, validatedHeaders] = await Promise.all([
-      validateBodyFromPayload(bodyValidator, payload),
+    const [
+      validatedBody,
+      validatedHeaders,
+      validatedParams,
+      validatedSearchParams,
+    ] = await Promise.all([
+      validateBodyFromPayload(bodyValidator, payload.body),
       validateHeadersFromNext(headersValidator),
+      validateParams(paramsValidator, payload.params),
+      validateSearchParamsFromRequest(
+        searchParamsValidator,
+        payload.searchParams
+      ),
     ]);
 
     const data = {
       body: validatedBody,
-      params: null,
+      params: validatedParams,
       headers: validatedHeaders,
-      searchParams: null,
+      searchParams: validatedSearchParams,
       user,
     };
 

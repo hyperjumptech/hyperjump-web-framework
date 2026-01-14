@@ -5,7 +5,7 @@ import {
   camelCase,
   getExportNames,
   findHandlerValidatorRoles,
-} from "./index";
+} from "./cli/index";
 
 const validConfig = `
 export const addAdminHandler = async () => {};

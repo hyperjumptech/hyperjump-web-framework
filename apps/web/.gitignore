@@ -1,3 +1,2 @@
 route.ts
-client.ts
-use-route-*.tsx
+*.gen.ts*

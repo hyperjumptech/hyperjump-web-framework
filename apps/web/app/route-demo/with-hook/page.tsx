@@ -1,7 +1,7 @@
 "use client";
 
-import { useRoutePost } from "../../api/posts/[postId]/use-route-post";
-import { useRouteGet } from "../../api/posts/[postId]/use-route-get";
+import { useRoutePost } from "../../api/posts/[postId]/use-route-post.gen";
+import { useRouteGet } from "../../api/posts/[postId]/use-route-get.gen";
 
 export default function WithHookPage() {
   const {

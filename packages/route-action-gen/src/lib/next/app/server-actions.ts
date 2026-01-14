@@ -4,6 +4,27 @@ import { createRequestValidator, HandlerFunc, HandlerResponse } from "../..";
 import { processFormAction, processServerFunction } from "../process.js";
 
 /**
+ * Extracts the payload type for server functions from a request validator.
+ * This type excludes 'user' and 'headers' (handled internally) and makes
+ * 'body' and 'params' required when they exist in the validator.
+ */
+type ExtractServerFunctionPayload<TValidator> = TValidator extends {
+  body?: infer TBody;
+  params?: infer TParams;
+  searchParams?: infer TSearchParams;
+}
+  ? (TBody extends z.ZodType
+      ? { body: z.infer<TBody> }
+      : Record<string, never>) &
+      (TParams extends z.ZodType
+        ? { params: z.infer<TParams> }
+        : Record<string, never>) &
+      (TSearchParams extends z.ZodType
+        ? { searchParams?: z.infer<TSearchParams> }
+        : Record<string, never>)
+  : never;
+
+/**
  * Creates a form action function for Next.js Form Actions which can called from the client component using useActionState hook.
  * @see https://nextjs.org/docs/app/getting-started/updating-data#showing-a-pending-state
  *
@@ -15,23 +36,27 @@ import { processFormAction, processServerFunction } from "../process.js";
  * @param prisma - The Prisma client
  * @returns A form action function
  */
-export function createFormAction(
-  requestValidator: ReturnType<typeof createRequestValidator>,
-  responseValidator: z.ZodType,
-  handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
+export function createFormAction<
+  TValidator extends ReturnType<typeof createRequestValidator>,
+  TResponse extends z.ZodType,
+  Input,
+>(
+  requestValidator: TValidator,
+  responseValidator: TResponse,
+  handler: HandlerFunc<TValidator, TResponse, Input>
 ) {
-  return async <State extends Awaited<ReturnType<typeof handler>> | null>(
-    _state: State,
-    payload: FormData | null
-  ): Promise<State> => {
+  return async (
+    _state: Awaited<ReturnType<typeof handler>> | null,
+    formData: FormData
+  ): Promise<Awaited<ReturnType<typeof handler>> | null> => {
     const processFunc = processFormAction(
       requestValidator,
       responseValidator,
       handler
     );
 
-    const response = await processFunc(payload);
-    return response as State;
+    const response = await processFunc(formData);
+    return response as Awaited<ReturnType<typeof handler>> | null;
   };
 }
 
@@ -40,13 +65,17 @@ export function createFormAction(
  *
  * @example
  */
-export function createServerFunction<TResponse extends z.ZodType, Input>(
-  requestValidator: ReturnType<typeof createRequestValidator>,
+export function createServerFunction<
+  TValidator extends ReturnType<typeof createRequestValidator>,
+  TResponse extends z.ZodType,
+  Input,
+>(
+  requestValidator: TValidator,
   responseValidator: TResponse,
-  handler: HandlerFunc<typeof requestValidator, TResponse, Input>
+  handler: HandlerFunc<TValidator, TResponse, Input>
 ) {
   return async (
-    payload: Input
+    payload: ExtractServerFunctionPayload<TValidator>
   ): Promise<HandlerResponse<TResponse, Input | null>> => {
     const processFunc = processServerFunction(
       requestValidator,
@@ -54,6 +83,6 @@ export function createServerFunction<TResponse extends z.ZodType, Input>(
       handler
     );
     const response = await processFunc(payload);
-    return response as HandlerResponse<TResponse, Input>;
+    return response;
   };
 }

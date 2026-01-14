@@ -17,7 +17,13 @@
     "next.config.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "app/api/posts/[postId]/client.gen.ts",
+    "app/api/posts/[postId]/route.ts",
+    "app/api/posts/[postId]/server.function.gen.ts",
+    "app/api/posts/[postId]/use-route-get.gen.tsx",
+    "app/api/posts/[postId]/use-route-post.gen.tsx",
+    "app/api/posts/[postId]/use-server-function.gen.tsx"
   ],
   "exclude": ["node_modules"]
 }

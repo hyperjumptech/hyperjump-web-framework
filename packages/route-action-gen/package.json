@@ -6,23 +6,28 @@
   "main": "src/index.ts",
   "types": "dist/index.d.ts",
   "bin": {
-    "route-action-gen": "dist/index.js"
+    "route-action-gen": "dist/cli/index.js"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     },
     "./lib": {
       "types": "./dist/lib/index.d.ts",
-      "import": "./dist/lib/index.js",
-      "require": "./dist/lib/index.cjs"
+      "import": "./dist/lib/index.js"
     },
-    "./lib/*": {
-      "types": "./dist/lib/*.d.ts",
-      "import": "./dist/lib/*.js",
-      "require": "./dist/lib/*.cjs"
+    "./lib/next": {
+      "types": "./dist/lib/next/index.d.ts",
+      "import": "./dist/lib/next/index.js"
+    },
+    "./lib/react": {
+      "types": "./dist/lib/react/index.d.ts",
+      "import": "./dist/lib/react/index.js"
+    },
+    "./lib/node": {
+      "types": "./dist/lib/node/index.d.ts",
+      "import": "./dist/lib/node/index.js"
     }
   },
   "scripts": {
