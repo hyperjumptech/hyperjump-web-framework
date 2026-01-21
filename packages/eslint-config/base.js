@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
+import reactStrictStructure from "eslint-plugin-react-strict-structure";
 import strictEnv from "eslint-plugin-strict-env";
 import turboPlugin from "eslint-plugin-turbo";
 import tseslint from "typescript-eslint";
@@ -23,9 +24,11 @@ export const config = [
   },
   {
     plugins: {
+      "react-strict-structure": reactStrictStructure,
       "strict-env": strictEnv,
     },
     rules: {
+      "react-strict-structure/no-inline-jsx-functions": "error",
       "strict-env/no-process-env": "error",
     },
   },
