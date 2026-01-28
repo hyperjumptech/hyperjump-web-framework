@@ -1,5 +1,5 @@
 {
   "title": "Welcome",
   "icon": "MyIcon",
-  "pages": ["index", "intro", "usage", "guide", "todo"]
+  "pages": ["index", "intro", "usage", "guide", "route-action-gen", "todo"]
 }
