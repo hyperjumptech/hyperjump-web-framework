@@ -17,8 +17,6 @@ import type {
   GenerationContext,
   GeneratedFile,
   ParsedConfig,
-  FieldInfo,
-  HttpMethod,
 } from "../types";
 import { BODY_METHODS } from "../types";
 import {
@@ -254,7 +252,6 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
     routePath: string,
   ): GeneratedFile {
     const method = config.method;
-    const methodPascal = pascalCase(method);
 
     if (method === "get") {
       return this.generateUseRouteGetHook(config, routePath);

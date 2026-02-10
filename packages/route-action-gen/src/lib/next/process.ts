@@ -12,7 +12,7 @@ type RequestValidator = ReturnType<typeof createRequestValidator>;
 
 const authenticateUser = async (
   auth: AuthFunc<any> | undefined,
-  request?: Request
+  request?: Request,
 ): Promise<{ user: any } | { error: ReturnType<typeof errorResponse> }> => {
   if (!auth) {
     return { user: null };
@@ -28,7 +28,7 @@ const authenticateUser = async (
 
 const validateHeaders = async (
   headersValidator: z.ZodType | undefined,
-  headersSource: Headers
+  headersSource: Headers,
 ): Promise<any> => {
   if (!headersValidator) {
     return null;
@@ -42,7 +42,7 @@ const validateHeaders = async (
 };
 
 const validateHeadersFromNext = async (
-  headersValidator: z.ZodType | undefined
+  headersValidator: z.ZodType | undefined,
 ): Promise<any> => {
   if (!headersValidator) {
     return null;
@@ -76,7 +76,7 @@ const parseRequestBody = async (request: Request): Promise<any> => {
 
 const validateBodyFromRequest = async (
   bodyValidator: z.ZodType | undefined,
-  request: Request
+  request: Request,
 ): Promise<any> => {
   const method = request?.method?.toLowerCase();
   const isBodyMethod =
@@ -90,20 +90,9 @@ const validateBodyFromRequest = async (
   return await bodyValidator.parseAsync(requestBody);
 };
 
-const validateBodyFromFormData = async (
-  bodyValidator: z.ZodType | undefined,
-  formData: FormData | null
-): Promise<any> => {
-  if (!bodyValidator || !formData) {
-    return null;
-  }
-
-  return await bodyValidator.parseAsync(Object.fromEntries(formData.entries()));
-};
-
 const validateBodyFromPayload = async (
   bodyValidator: z.ZodType | undefined,
-  payload: any
+  payload: any,
 ): Promise<any> => {
   if (!bodyValidator) {
     return null;
@@ -114,7 +103,7 @@ const validateBodyFromPayload = async (
 
 const validateParams = async (
   paramsValidator: z.ZodType | undefined,
-  params: any
+  params: any,
 ): Promise<any> => {
   if (!paramsValidator || !params) {
     return null;
@@ -125,7 +114,7 @@ const validateParams = async (
 
 const validateSearchParamsFromRequest = async (
   searchParamsValidator: z.ZodType | undefined,
-  request: Request
+  request: Request,
 ): Promise<any> => {
   if (!searchParamsValidator) {
     return null;
@@ -150,7 +139,11 @@ export const processRequest =
   (
     requestValidator: RequestValidator,
     responseValidator: z.ZodType,
-    handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
+    handler: HandlerFunc<
+      typeof requestValidator,
+      typeof responseValidator,
+      any
+    >,
   ) =>
   async (request: Request, params?: any) => {
     const {
@@ -201,7 +194,11 @@ export const processFormAction =
   (
     requestValidator: RequestValidator,
     responseValidator: z.ZodType,
-    handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
+    handler: HandlerFunc<
+      typeof requestValidator,
+      typeof responseValidator,
+      any
+    >,
   ) =>
   async (formData: FormData | null) => {
     const {
@@ -254,7 +251,11 @@ export const processServerFunction =
   (
     requestValidator: RequestValidator,
     responseValidator: z.ZodType,
-    handler: HandlerFunc<typeof requestValidator, typeof responseValidator, any>
+    handler: HandlerFunc<
+      typeof requestValidator,
+      typeof responseValidator,
+      any
+    >,
   ) =>
   async (payload: {
     body?: z.infer<NonNullable<typeof requestValidator.body>>;
@@ -286,7 +287,7 @@ export const processServerFunction =
       validateParams(paramsValidator, payload.params),
       validateSearchParamsFromRequest(
         searchParamsValidator,
-        payload.searchParams
+        payload.searchParams,
       ),
     ]);
 

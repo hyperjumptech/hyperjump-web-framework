@@ -49,9 +49,9 @@ export type {
   HttpMethod,
 } from "./types";
 
-const VERSION = "0.0.0";
+export const VERSION = "0.0.0";
 
-const HELP_TEXT = `
+export const HELP_TEXT = `
 route-action-gen v${VERSION}
 
 Generate route handlers, server functions, form actions, and React hooks
@@ -80,7 +80,7 @@ interface CliArgs {
   framework: string;
 }
 
-function parseArgs(argv: string[]): CliArgs {
+export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     help: false,
     version: false,
@@ -185,7 +185,7 @@ export function generate(
 /**
  * Main CLI entry point.
  */
-function main() {
+export function main() {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {
