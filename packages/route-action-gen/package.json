@@ -32,6 +32,7 @@
   },
   "scripts": {
     "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage",
     "build": "tsc"
   },
   "dependencies": {
@@ -43,8 +44,9 @@
     "@types/node": "^20",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "@vitest/coverage-v8": "catalog:",
     "@workspace/typescript-config": "workspace:*",
     "next": "^15.5.9",
-    "vitest": "^2.0.5"
+    "vitest": "catalog:"
   }
 }
