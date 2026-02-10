@@ -15,10 +15,10 @@ import {
 export const GET = createRoute(
   getRequestValidator,
   getResponseValidator,
-  getHandler
+  getHandler,
 );
 export const POST = createRoute(
   postRequestValidator,
   postResponseValidator,
-  postHandler
+  postHandler,
 );

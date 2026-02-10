@@ -29,5 +29,4 @@ export class RouteClient {
     const validatedData = await getResponseValidator.parseAsync(responseData);
     return validatedData;
   }
-
 }

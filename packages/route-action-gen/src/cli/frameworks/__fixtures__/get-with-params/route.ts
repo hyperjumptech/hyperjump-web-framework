@@ -10,5 +10,5 @@ import {
 export const GET = createRoute(
   getRequestValidator,
   getResponseValidator,
-  getHandler
+  getHandler,
 );

@@ -15,5 +15,5 @@ import { createServerFunction } from "route-action-gen/lib/next";
 export const serverFunction = createServerFunction(
   requestValidator,
   responseValidator,
-  handler
+  handler,
 );

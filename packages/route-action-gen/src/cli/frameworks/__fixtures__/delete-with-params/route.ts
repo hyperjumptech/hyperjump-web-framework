@@ -10,5 +10,5 @@ import {
 export const DELETE = createRoute(
   deleteRequestValidator,
   deleteResponseValidator,
-  deleteHandler
+  deleteHandler,
 );

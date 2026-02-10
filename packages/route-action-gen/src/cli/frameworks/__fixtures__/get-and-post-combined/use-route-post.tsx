@@ -10,7 +10,7 @@ import { z } from "zod";
  */
 export const useRoutePost = () => {
   const [data, setData] = useState<z.infer<typeof responseValidator> | null>(
-    null
+    null,
   );
   const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -22,7 +22,7 @@ export const useRoutePost = () => {
         body: z.infer<NonNullable<typeof requestValidator.body>>;
         options?: { abortController?: AbortController; timeoutMs?: number };
       },
-      isCleanedUp?: () => boolean
+      isCleanedUp?: () => boolean,
     ) => {
       setIsLoading(true);
       setError(null);
@@ -75,11 +75,11 @@ export const useRoutePost = () => {
         setIsLoading(false);
       }
     },
-    []
+    [],
   );
 
   return useMemo(
     () => ({ data, error, isLoading, fetchData }),
-    [data, error, isLoading, fetchData]
+    [data, error, isLoading, fetchData],
   );
 };

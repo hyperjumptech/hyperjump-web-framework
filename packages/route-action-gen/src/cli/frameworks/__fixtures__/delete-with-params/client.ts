@@ -26,9 +26,9 @@ export class RouteClient {
     }
 
     const responseData = await response.json();
-    const validatedData = await deleteResponseValidator.parseAsync(responseData);
+    const validatedData =
+      await deleteResponseValidator.parseAsync(responseData);
 
     return validatedData;
   }
-
 }

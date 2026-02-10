@@ -13,7 +13,7 @@ export const useRouteGet = (input: {
   params: z.infer<NonNullable<typeof requestValidator.params>>;
 }) => {
   const [data, setData] = useState<z.infer<typeof responseValidator> | null>(
-    null
+    null,
   );
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(false);
@@ -101,6 +101,6 @@ export const useRouteGet = (input: {
 
   return useMemo(
     () => ({ data, error, isLoading, cancel, refetch, lastFetchedAt }),
-    [data, error, isLoading, cancel, refetch, lastFetchedAt]
+    [data, error, isLoading, cancel, refetch, lastFetchedAt],
   );
 };

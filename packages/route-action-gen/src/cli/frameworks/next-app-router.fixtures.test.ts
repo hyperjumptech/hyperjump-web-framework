@@ -6,11 +6,16 @@
  * files live under `__fixtures__/` so developers can browse the generated
  * output directly in their IDE with full syntax highlighting.
  *
+ * Generated content is formatted through Prettier before comparison so that
+ * cosmetic formatting changes (trailing commas, line wrapping, etc.) never
+ * cause spurious test failures.
+ *
  * To update fixtures after template changes:
  *   pnpm vitest --update
  */
 
 import { describe, it, expect } from "vitest";
+import * as prettier from "prettier";
 import { NextAppRouterGenerator } from "./next-app-router.js";
 import { parseConfigFile } from "../parser.js";
 import type { HttpMethod } from "../types.js";
@@ -124,6 +129,13 @@ export const handler: HandlerFunc<
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Format code with Prettier so cosmetic differences don't affect snapshots. */
+async function fmt(code: string, fileName: string): Promise<string> {
+  return prettier.format(code, {
+    filepath: fileName,
+  });
+}
+
 function parseAndGenerate(
   configs: { source: string; method: HttpMethod; fileName: string }[],
   routePath: string,
@@ -157,7 +169,8 @@ describe("Next App Router - generated file fixtures", () => {
     );
 
     it.each(files)("generates $fileName", async (file) => {
-      await expect(file.content).toMatchFileSnapshot(
+      const formatted = await fmt(file.content, file.fileName);
+      await expect(formatted).toMatchFileSnapshot(
         `./__fixtures__/post-with-body-params-auth/${file.fileName}`,
       );
     });
@@ -176,7 +189,8 @@ describe("Next App Router - generated file fixtures", () => {
     );
 
     it.each(files)("generates $fileName", async (file) => {
-      await expect(file.content).toMatchFileSnapshot(
+      const formatted = await fmt(file.content, file.fileName);
+      await expect(formatted).toMatchFileSnapshot(
         `./__fixtures__/get-with-params/${file.fileName}`,
       );
     });
@@ -195,7 +209,8 @@ describe("Next App Router - generated file fixtures", () => {
     );
 
     it.each(files)("generates $fileName", async (file) => {
-      await expect(file.content).toMatchFileSnapshot(
+      const formatted = await fmt(file.content, file.fileName);
+      await expect(formatted).toMatchFileSnapshot(
         `./__fixtures__/delete-with-params/${file.fileName}`,
       );
     });
@@ -219,7 +234,8 @@ describe("Next App Router - generated file fixtures", () => {
     );
 
     it.each(files)("generates $fileName", async (file) => {
-      await expect(file.content).toMatchFileSnapshot(
+      const formatted = await fmt(file.content, file.fileName);
+      await expect(formatted).toMatchFileSnapshot(
         `./__fixtures__/get-and-post-combined/${file.fileName}`,
       );
     });

@@ -16,7 +16,7 @@ export const useServerFunction = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<z.infer<typeof responseValidator> | null>(
-    null
+    null,
   );
   const fetchData = useCallback(
     async (payload: Parameters<typeof serverFunction>[0]) => {
@@ -29,7 +29,7 @@ export const useServerFunction = () => {
         }
       });
     },
-    [startTransition]
+    [startTransition],
   );
 
   return useMemo(
@@ -39,6 +39,6 @@ export const useServerFunction = () => {
       error,
       data,
     }),
-    [pending, error, data, fetchData]
+    [pending, error, data, fetchData],
   );
 };

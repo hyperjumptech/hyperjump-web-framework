@@ -29,6 +29,6 @@ export const useFormAction = () => {
        */
       pending,
     }),
-    [FormWithAction, state, pending]
+    [FormWithAction, state, pending],
   );
 };

@@ -10,5 +10,5 @@ import {
 export const POST = createRoute(
   postRequestValidator,
   postResponseValidator,
-  postHandler
+  postHandler,
 );

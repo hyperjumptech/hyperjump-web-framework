@@ -16,5 +16,5 @@ import { createFormAction } from "route-action-gen/lib/next";
 export const formAction = createFormAction(
   requestValidator,
   responseValidator,
-  handler
+  handler,
 );

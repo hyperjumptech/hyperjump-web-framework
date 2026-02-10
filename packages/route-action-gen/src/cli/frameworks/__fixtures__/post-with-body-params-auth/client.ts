@@ -36,5 +36,4 @@ export class RouteClient {
 
     return validatedData;
   }
-
 }
