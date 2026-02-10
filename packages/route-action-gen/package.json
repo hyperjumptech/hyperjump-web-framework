@@ -33,7 +33,7 @@
   "scripts": {
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage",
-    "build": "tsc"
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "glob": "^13.0.0",
