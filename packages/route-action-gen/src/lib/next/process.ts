@@ -4,9 +4,9 @@ import {
   HandlerFunc,
   errorResponse,
   AuthFunc,
-} from "..";
+} from "../index.js";
 import { z } from "zod";
-import { parseFormData } from "../node/form-data";
+import { parseFormData } from "../node/form-data.js";
 
 type RequestValidator = ReturnType<typeof createRequestValidator>;
 

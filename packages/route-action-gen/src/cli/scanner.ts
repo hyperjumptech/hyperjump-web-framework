@@ -3,7 +3,7 @@
  */
 
 import path from "node:path";
-import type { HttpMethod } from "./types";
+import type { HttpMethod } from "./types.js";
 
 /** The glob pattern to match route config files */
 const CONFIG_GLOB =

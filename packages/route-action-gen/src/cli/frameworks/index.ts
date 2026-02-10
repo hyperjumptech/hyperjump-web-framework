@@ -3,8 +3,8 @@
  * Maps framework names (used with --framework flag) to their generator instances.
  */
 
-import type { FrameworkGenerator } from "../types";
-import { NextAppRouterGenerator } from "./next-app-router";
+import type { FrameworkGenerator } from "../types.js";
+import { NextAppRouterGenerator } from "./next-app-router.js";
 
 /** All available framework generators */
 const generators: FrameworkGenerator[] = [new NextAppRouterGenerator()];

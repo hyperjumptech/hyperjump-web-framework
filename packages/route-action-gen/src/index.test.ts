@@ -13,9 +13,9 @@ import {
   getFrameworkGenerator,
   getAvailableFrameworks,
   DEFAULT_FRAMEWORK,
-} from "./cli/index";
-import type { CliDeps } from "./cli/types";
-import { extractMethod } from "./cli/scanner";
+} from "./cli/index.js";
+import type { CliDeps } from "./cli/types.js";
+import { extractMethod } from "./cli/scanner.js";
 
 // ---------------------------------------------------------------------------
 // Utility functions

@@ -13,7 +13,7 @@ vi.mock("glob", () => ({
   globSync: vi.fn().mockReturnValue([]),
 }));
 
-import { parseArgs, main, VERSION, HELP_TEXT } from "./index";
+import { parseArgs, main, VERSION, HELP_TEXT } from "./index.js";
 import fs from "node:fs";
 import { globSync } from "glob";
 

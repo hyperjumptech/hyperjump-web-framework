@@ -1,6 +1,6 @@
-import { createRequestValidator, HandlerFunc } from "../..";
+import { createRequestValidator, HandlerFunc } from "../../index.js";
 import { z } from "zod";
-import { processRequest } from "../process";
+import { processRequest } from "../process.js";
 
 /**
  * Create a route handler for Next.js App Router.
@@ -12,13 +12,13 @@ import { processRequest } from "../process";
 export const createRoute = <TResponse extends z.ZodType, Input>(
   requestValidator: ReturnType<typeof createRequestValidator>,
   responseValidator: TResponse,
-  handler: HandlerFunc<typeof requestValidator, TResponse, Input>
+  handler: HandlerFunc<typeof requestValidator, TResponse, Input>,
 ): ((request: Request, context?: any) => Promise<Response>) => {
   return async (request: Request, context?: any) => {
     const processFunc = processRequest(
       requestValidator,
       responseValidator,
-      handler
+      handler,
     );
     const params = await context?.params;
     const response = await processFunc(request, params);

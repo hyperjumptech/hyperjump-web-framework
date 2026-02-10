@@ -3,4 +3,4 @@
  * Re-exports core library functionality for convenience
  */
 
-export * from "./lib";
+export * from "./lib/index.js";

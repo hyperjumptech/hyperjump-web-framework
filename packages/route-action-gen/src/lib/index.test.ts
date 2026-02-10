@@ -4,7 +4,7 @@ import {
   errorResponse,
   mapZodError,
   successResponse,
-} from ".";
+} from "./index.js";
 import z from "zod";
 
 describe("index", () => {

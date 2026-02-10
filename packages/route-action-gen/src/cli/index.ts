@@ -15,18 +15,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import { globSync } from "glob";
-import { scanConfigFiles } from "./scanner";
-import { parseConfigFile } from "./parser";
+import { scanConfigFiles } from "./scanner.js";
+import { parseConfigFile } from "./parser.js";
 import {
   getFrameworkGenerator,
   getAvailableFrameworks,
   DEFAULT_FRAMEWORK,
-} from "./frameworks/index";
-import type { CliDeps, GenerationContext } from "./types";
+} from "./frameworks/index.js";
+import type { CliDeps, GenerationContext } from "./types.js";
 
 // Re-export modules for testing
-export { scanConfigFiles } from "./scanner";
-export { parseConfigFile, extractZodObjectFields } from "./parser";
+export { scanConfigFiles } from "./scanner.js";
+export { parseConfigFile, extractZodObjectFields } from "./parser.js";
 export {
   pascalCase,
   camelCase,
@@ -34,12 +34,12 @@ export {
   buildFetchUrlExpression,
   zodTypeToInputType,
   fieldNameToLabel,
-} from "./utils";
+} from "./utils.js";
 export {
   getFrameworkGenerator,
   getAvailableFrameworks,
   DEFAULT_FRAMEWORK,
-} from "./frameworks/index";
+} from "./frameworks/index.js";
 export type {
   ParsedConfig,
   GenerationContext,
@@ -47,7 +47,7 @@ export type {
   FieldInfo,
   FrameworkGenerator,
   HttpMethod,
-} from "./types";
+} from "./types.js";
 
 export const VERSION = "0.0.0";
 

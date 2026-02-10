@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseFormData } from "./form-data";
+import { parseFormData } from "./form-data.js";
 
 describe("parseFormData", () => {
   it("should parse simple flat key-value pairs", () => {
@@ -372,4 +372,3 @@ describe("parseFormData", () => {
     });
   });
 });
-

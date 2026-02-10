@@ -6,7 +6,7 @@
  * - Field names and Zod types from z.object({...}) definitions
  */
 
-import type { HttpMethod, ParsedConfig, FieldInfo } from "./types";
+import type { HttpMethod, ParsedConfig, FieldInfo } from "./types.js";
 
 /**
  * Parse a route config file and extract metadata.

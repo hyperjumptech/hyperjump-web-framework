@@ -1,6 +1,10 @@
 import z from "zod";
 
-import { createRequestValidator, HandlerFunc, HandlerResponse } from "../..";
+import {
+  createRequestValidator,
+  HandlerFunc,
+  HandlerResponse,
+} from "../../index.js";
 import { processFormAction, processServerFunction } from "../process.js";
 
 /**
@@ -43,16 +47,16 @@ export function createFormAction<
 >(
   requestValidator: TValidator,
   responseValidator: TResponse,
-  handler: HandlerFunc<TValidator, TResponse, Input>
+  handler: HandlerFunc<TValidator, TResponse, Input>,
 ) {
   return async (
     _state: Awaited<ReturnType<typeof handler>> | null,
-    formData: FormData
+    formData: FormData,
   ): Promise<Awaited<ReturnType<typeof handler>> | null> => {
     const processFunc = processFormAction(
       requestValidator,
       responseValidator,
-      handler
+      handler,
     );
 
     const response = await processFunc(formData);
@@ -72,15 +76,15 @@ export function createServerFunction<
 >(
   requestValidator: TValidator,
   responseValidator: TResponse,
-  handler: HandlerFunc<TValidator, TResponse, Input>
+  handler: HandlerFunc<TValidator, TResponse, Input>,
 ) {
   return async (
-    payload: ExtractServerFunctionPayload<TValidator>
+    payload: ExtractServerFunctionPayload<TValidator>,
   ): Promise<HandlerResponse<TResponse, Input | null>> => {
     const processFunc = processServerFunction(
       requestValidator,
       responseValidator,
-      handler
+      handler,
     );
     const response = await processFunc(payload);
     return response;

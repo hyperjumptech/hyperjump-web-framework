@@ -6,4 +6,4 @@ export {
   createFormWithAction,
   createInput,
   createLabel,
-} from "./create-form";
+} from "./create-form.js";
