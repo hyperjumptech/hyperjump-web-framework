@@ -1,6 +1,6 @@
 {
   "name": "route-action-gen",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A code generation CLI and runtime library that produces type-safe route handlers, client classes, React hooks, server functions, form actions, and form components from declarative route config files for Next.js App Router.",
   "type": "module",
   "license": "MIT",
