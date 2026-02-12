@@ -889,6 +889,7 @@ describe("generate (end-to-end)", () => {
       mkdirSync: (dirPath: string) => {
         createdDirs.push(dirPath);
       },
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -917,6 +918,7 @@ describe("generate (end-to-end)", () => {
       readFileSync: () => "",
       writeFileSync: () => {},
       mkdirSync: () => {},
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -931,6 +933,7 @@ describe("generate (end-to-end)", () => {
       readFileSync: () => "",
       writeFileSync: () => {},
       mkdirSync: () => {},
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -951,6 +954,7 @@ describe("generate (end-to-end)", () => {
       },
       writeFileSync: () => {},
       mkdirSync: () => {},
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -980,6 +984,7 @@ describe("generate (end-to-end)", () => {
       mkdirSync: (dirPath: string) => {
         createdDirs.push(dirPath);
       },
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -1024,6 +1029,7 @@ describe("generate (end-to-end)", () => {
         writtenFiles[filePath] = content;
       },
       mkdirSync: () => {},
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -1048,6 +1054,7 @@ describe("generate (end-to-end)", () => {
         writtenFiles[filePath] = content;
       },
       mkdirSync: () => {},
+      existsSync: () => false,
       cwd: () => "/project",
     };
 
@@ -1075,6 +1082,7 @@ describe("generate (end-to-end)", () => {
         writtenFiles[filePath] = content;
       },
       mkdirSync: () => {},
+      existsSync: () => false,
       cwd: () => "/project",
     };
 

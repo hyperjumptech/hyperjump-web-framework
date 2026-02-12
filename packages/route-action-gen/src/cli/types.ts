@@ -65,6 +65,14 @@ export interface GeneratedFile {
   content: string;
 }
 
+/** Entry point file that re-exports from .generated/ */
+export interface EntryPointFile {
+  /** File name relative to the config directory, e.g. "route.ts" or "index.ts" */
+  fileName: string;
+  /** File content, e.g. 'export * from "./.generated/route";\n' */
+  content: string;
+}
+
 /** Interface that all framework generators must implement */
 export interface FrameworkGenerator {
   /** Framework name used for --framework flag, e.g. "next-app-router" */
@@ -79,6 +87,14 @@ export interface FrameworkGenerator {
    * @returns Array of files to write into the .generated/ directory
    */
   generate(context: GenerationContext): GeneratedFile[];
+  /**
+   * Get the entry point file that re-exports from .generated/.
+   * This file lives in the config directory (not inside .generated/).
+   *
+   * - App Router: route.ts with `export * from "./.generated/route";`
+   * - Pages Router: index.ts with `export { default } from "./.generated/route";`
+   */
+  getEntryPointFile(): EntryPointFile;
 }
 
 /** Dependencies that can be injected for testing */
@@ -87,5 +103,6 @@ export interface CliDeps {
   readFileSync: (path: string) => string;
   writeFileSync: (path: string, content: string) => void;
   mkdirSync: (path: string, options?: { recursive?: boolean }) => void;
+  existsSync: (path: string) => boolean;
   cwd: () => string;
 }

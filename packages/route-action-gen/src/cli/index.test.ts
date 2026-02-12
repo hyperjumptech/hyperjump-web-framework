@@ -6,6 +6,7 @@ vi.mock("node:fs", () => ({
     readFileSync: vi.fn(),
     writeFileSync: vi.fn(),
     mkdirSync: vi.fn(),
+    existsSync: vi.fn(),
   },
 }));
 
@@ -251,10 +252,12 @@ describe("main", () => {
   const originalArgv = process.argv;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(globSync).mockReturnValue([]);
     vi.mocked(fs.readFileSync).mockReturnValue("" as never);
     vi.mocked(fs.writeFileSync).mockImplementation(() => undefined);
     vi.mocked(fs.mkdirSync).mockImplementation(() => undefined as never);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -443,5 +446,113 @@ describe("main", () => {
     expect(logSpy).toHaveBeenCalledWith(
       "Framework: auto (detect per directory)",
     );
+  });
+
+  it("creates app router entry point file when it does not exist", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    // Act
+    main();
+
+    // Assert
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
+      "/test-project/app/api/posts/route.ts",
+      'export * from "./.generated/route";\n',
+      "utf-8",
+    );
+  });
+
+  it("creates pages router entry point file when it does not exist", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "pages/api/users/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    // Act
+    main();
+
+    // Assert
+    expect(fs.writeFileSync).toHaveBeenCalledWith(
+      "/test-project/pages/api/users/index.ts",
+      'export { default } from "./.generated/route";\n',
+      "utf-8",
+    );
+  });
+
+  it("does not overwrite existing entry point file", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+
+    // Act
+    main();
+
+    // Assert
+    expect(fs.writeFileSync).not.toHaveBeenCalledWith(
+      "/test-project/app/api/posts/route.ts",
+      expect.any(String),
+      "utf-8",
+    );
+  });
+
+  it("prints entry point creation message when file is created", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    // Act
+    main();
+
+    // Assert
+    expect(logSpy).toHaveBeenCalledWith(
+      "  Created entry point: /test-project/app/api/posts/route.ts",
+    );
+  });
+
+  it("does not print entry point creation message when file already exists", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+
+    // Act
+    main();
+
+    // Assert
+    const entryPointCalls = logSpy.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "string" && call[0].includes("Created entry point"),
+    );
+    expect(entryPointCalls).toHaveLength(0);
   });
 });

@@ -16,6 +16,7 @@ import type {
   FrameworkGenerator,
   GenerationContext,
   GeneratedFile,
+  EntryPointFile,
   ParsedConfig,
 } from "../types.js";
 import { BODY_METHODS } from "../types.js";
@@ -45,6 +46,13 @@ import { readmeTemplate } from "./next-app-router/templates/readme.md.js";
 
 export class NextAppRouterGenerator implements FrameworkGenerator {
   name = "next-app-router";
+
+  getEntryPointFile(): EntryPointFile {
+    return {
+      fileName: "route.ts",
+      content: 'export * from "./.generated/route";\n',
+    };
+  }
 
   resolveRoutePath(directory: string): string {
     // Find the 'app/' segment in the path and use everything after it

@@ -46,6 +46,7 @@ export type {
   ParsedConfig,
   GenerationContext,
   GeneratedFile,
+  EntryPointFile,
   FieldInfo,
   FrameworkGenerator,
   HttpMethod,
@@ -122,7 +123,12 @@ export function generate(
   frameworkName: string,
 ): {
   success: boolean;
-  generated?: { directory: string; files: string[] }[];
+  generated?: {
+    directory: string;
+    files: string[];
+    entryPointFile?: string;
+    entryPointCreated: boolean;
+  }[];
   error?: string;
 } {
   const isAuto = frameworkName === "auto";
@@ -149,7 +155,12 @@ export function generate(
     };
   }
 
-  const results: { directory: string; files: string[] }[] = [];
+  const results: {
+    directory: string;
+    files: string[];
+    entryPointFile?: string;
+    entryPointCreated: boolean;
+  }[] = [];
 
   for (const group of groups) {
     // Pick the right generator for this directory
@@ -186,9 +197,21 @@ export function generate(
       writtenFiles.push(file.fileName);
     }
 
+    // Create entry point file if it doesn't exist
+    const entryPoint = generator.getEntryPointFile();
+    const entryPointPath = path.join(group.directory, entryPoint.fileName);
+    let entryPointCreated = false;
+
+    if (!deps.existsSync(entryPointPath)) {
+      deps.writeFileSync(entryPointPath, entryPoint.content);
+      entryPointCreated = true;
+    }
+
     results.push({
       directory: group.directory,
       files: writtenFiles,
+      entryPointFile: entryPoint.fileName,
+      entryPointCreated,
     });
   }
 
@@ -217,6 +240,7 @@ export function main() {
     writeFileSync: (filePath, content) =>
       fs.writeFileSync(filePath, content, "utf-8"),
     mkdirSync: (dirPath, options) => fs.mkdirSync(dirPath, options),
+    existsSync: (filePath) => fs.existsSync(filePath),
     cwd: () => process.cwd(),
   };
 
@@ -238,6 +262,11 @@ export function main() {
       console.log(`Generated in ${group.directory}/.generated/:`);
       for (const file of group.files) {
         console.log(`  - ${file}`);
+      }
+      if (group.entryPointCreated && group.entryPointFile) {
+        console.log(
+          `  Created entry point: ${group.directory}/${group.entryPointFile}`,
+        );
       }
       console.log();
     }

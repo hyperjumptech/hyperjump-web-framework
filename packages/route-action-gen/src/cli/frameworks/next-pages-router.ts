@@ -18,6 +18,7 @@ import type {
   FrameworkGenerator,
   GenerationContext,
   GeneratedFile,
+  EntryPointFile,
   ParsedConfig,
 } from "../types.js";
 import { BODY_METHODS } from "../types.js";
@@ -45,6 +46,13 @@ import { formComponentsTemplate } from "./next-app-router/templates/form-compone
 
 export class NextPagesRouterGenerator implements FrameworkGenerator {
   name = "next-pages-router";
+
+  getEntryPointFile(): EntryPointFile {
+    return {
+      fileName: "index.ts",
+      content: 'export { default } from "./.generated/route";\n',
+    };
+  }
 
   resolveRoutePath(directory: string): string {
     // Find the 'pages/' segment in the path and use everything after it
