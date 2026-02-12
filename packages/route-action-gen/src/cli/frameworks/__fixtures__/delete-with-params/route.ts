@@ -7,6 +7,30 @@ import {
   responseValidator as deleteResponseValidator,
 } from "../route.delete.config";
 
+/**
+ * The DELETE route handler for the /api/posts/[postId] endpoint.
+ * You can call this route handler from a non-React app by using the `fetch` function:
+ * ```ts
+ * const response = await fetch("/api/posts/example-postId", {
+ *   method: "DELETE",
+ * });
+ * ```
+ * Or you can use the `useRouteDelete` hook to call this route handler from a React client component:
+ * ```tsx
+ * const { data, error, isLoading, cancel, refetch, lastFetchedAt } = useRouteDelete({
+ *   params: { postId: "example-postId" },
+ * });
+ * ```
+ * Or you can use the `RouteClient` class to call this route handler from a non-React app:
+ * ```ts
+ * const client = new RouteClient();
+ * const response = await client.delete({
+ *   params: { postId: "example-postId" },
+ * });
+ * ```
+ * @param inputData - The input data for the route handler.
+ * @returns The response from the route handler.
+ */
 export const DELETE = createRoute(
   deleteRequestValidator,
   deleteResponseValidator,

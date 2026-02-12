@@ -7,6 +7,30 @@ import {
   responseValidator as getResponseValidator,
 } from "../route.get.config";
 
+/**
+ * The GET route handler for the /api/posts/[postId] endpoint.
+ * You can call this route handler from a non-React app by using the `fetch` function:
+ * ```ts
+ * const response = await fetch("/api/posts/example-postId", {
+ *   method: "GET",
+ * });
+ * ```
+ * Or you can use the `useRouteGet` hook to call this route handler from a React client component:
+ * ```tsx
+ * const { data, error, isLoading, cancel, refetch, lastFetchedAt } = useRouteGet({
+ *   params: { postId: "example-postId" },
+ * });
+ * ```
+ * Or you can use the `RouteClient` class to call this route handler from a non-React app:
+ * ```ts
+ * const client = new RouteClient();
+ * const response = await client.get({
+ *   params: { postId: "example-postId" },
+ * });
+ * ```
+ * @param inputData - The input data for the route handler.
+ * @returns The response from the route handler.
+ */
 export const GET = createRoute(
   getRequestValidator,
   getResponseValidator,

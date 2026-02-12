@@ -96,8 +96,8 @@ importers:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
       route-action-gen:
-        specifier: 0.0.1
-        version: 0.0.1(next@16.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../packages/route-action-gen
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -2923,19 +2923,6 @@ packages:
     resolution: {integrity: sha512-3nk8Y3a9Ea8szgKhinMlGMhGMw89mqule3KWczxhIzqudyHdCIOHw8WJlj/r329fACjKLEh13ZSk7oE22kyeIw==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
-
-  route-action-gen@0.0.1:
-    resolution: {integrity: sha512-VTfgu7f+H+gItGYl608T7VJOi0cy0rtBBlienVbHcMcLYUo1Zwfw2TTjTq2Dw03iGE18HLTksFPzJYVnQpTEeA==}
-    hasBin: true
-    peerDependencies:
-      next: '>=14.0.0'
-      react: '>=18.0.0'
-      zod: ^3.0.0
-    peerDependenciesMeta:
-      next:
-        optional: true
-      react:
-        optional: true
 
   run-async@2.4.1:
     resolution: {integrity: sha512-tvVnVv01b8c1RrA6Ep7JkStj85Guv/YrMcwqYQnwjsAS2cTmmPGBBjAjpCW7RrSodNSoE2/qg9O4bceNvUuDgQ==}
@@ -6171,14 +6158,6 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.54.0
       '@rollup/rollup-win32-x64-msvc': 4.54.0
       fsevents: 2.3.3
-
-  route-action-gen@0.0.1(next@16.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(zod@3.25.76):
-    dependencies:
-      glob: 13.0.0
-      zod: 3.25.76
-    optionalDependencies:
-      next: 16.0.7(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      react: 19.2.0
 
   run-async@2.4.1: {}
 

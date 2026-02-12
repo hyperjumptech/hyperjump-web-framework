@@ -61,7 +61,7 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
     const { configs, routePath } = context;
 
     // Always generate route.ts and client.ts
-    files.push(this.generateRoute(configs));
+    files.push(this.generateRoute(configs, routePath));
     files.push(this.generateClient(configs, routePath));
 
     // Generate use-route-[method].tsx for each method
@@ -95,11 +95,20 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   // ---------------------------------------------------------------------------
   // route.ts
   // ---------------------------------------------------------------------------
-  private generateRoute(configs: ParsedConfig[]): GeneratedFile {
+  private generateRoute(
+    configs: ParsedConfig[],
+    routePath: string,
+  ): GeneratedFile {
     const entries = configs.map((config) => ({
       method: config.method,
       methodUpper: config.method.toUpperCase(),
+      methodPascal: pascalCase(config.method),
       configFileBase: config.configFileName.replace(".ts", ""),
+      routePath,
+      isBodyMethod: BODY_METHODS.includes(config.method),
+      bodyFields: config.bodyFields,
+      paramFields: config.paramFields,
+      searchParamFields: config.searchParamFields,
     }));
 
     return { fileName: "route.ts", content: routeTemplate(entries) };
