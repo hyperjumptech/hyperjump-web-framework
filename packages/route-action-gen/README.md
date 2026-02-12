@@ -1,12 +1,14 @@
 # route-action-gen
 
-A code generation CLI that produces type-safe route handlers, client classes, React hooks, server functions, form actions, and form components from declarative route config files. Eliminates boilerplate by turning a single config into a full set of ready-to-use artifacts for your Next.js App Router project.
+A code generation CLI that produces type-safe route handlers, client classes, React hooks, server functions, form actions, and form components from declarative route config files. Eliminates boilerplate by turning a single config into a full set of ready-to-use artifacts for your Next.js project (App Router and Pages Router).
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [CLI Usage](#cli-usage)
+  - [Generate (default)](#generate-default)
+  - [Create Command](#create-command)
 - [Config File Format](#config-file-format)
 - [Generated Files](#generated-files)
 - [Library Exports](#library-exports)
@@ -87,27 +89,45 @@ Generate route handlers, server functions, form actions, and React hooks
 from route config files.
 
 Usage:
-  npx route-action-gen [options]
+  npx route-action-gen [options]           Scan and generate code
+  npx route-action-gen create <method> [directory]
+                                           Scaffold a new config file
+
+Commands:
+  create <method> [dir]   Create a route.<method>.config.ts file.
+                          Methods: get, post, put, delete, patch, options, head
+                          Directory defaults to the current directory.
+                          Use --force to overwrite an existing file.
 
 Options:
-  -h, --help                Show help message
-  -v, --version             Show version number
-  -f, --framework <name>    Framework target (default: next-app-router)
+  --help                Show this help message
+  --version             Show version number
+  --framework <name>    Framework target (default: auto)
+                        Use "auto" to detect per directory (pages/ vs app/).
+  --force               Overwrite existing file (for create command)
+
+Available frameworks:
+  auto, next-app-router, next-pages-router
 ```
 
-### How It Works
+### Generate (default)
+
+When run without a command, the CLI scans for config files and generates code.
+
+#### How It Works
 
 1. **Scan** - Recursively finds all `route.[method].config.ts` files in the current directory
 2. **Group** - Groups config files by their parent directory (multiple methods per directory are supported)
 3. **Parse** - Extracts metadata from each config file (validators, fields, auth presence)
 4. **Generate** - Produces framework-specific files using templates
 5. **Write** - Outputs generated files to a `.generated/` subdirectory alongside the config files
+6. **Entry Point** - Creates an entry point file (`route.ts` for App Router, `index.ts` for Pages Router) if one doesn't already exist
 
-### Example Output
+#### Example Output
 
 ```
 route-action-gen v0.0.0
-Framework: next-app-router
+Framework: auto (detect per directory)
 Scanning for config files in: /Users/you/my-app
 
 Generated in /Users/you/my-app/app/api/posts/[postId]/.generated/:
@@ -119,15 +139,36 @@ Generated in /Users/you/my-app/app/api/posts/[postId]/.generated/:
   - use-server-function.tsx
   - use-form-action.tsx
   - form-components.tsx
+  - README.md
+  Created entry point: /Users/you/my-app/app/api/posts/[postId]/route.ts
 
-Done! Generated 8 file(s) in 1 directory(ies).
+Done! Generated 9 file(s) in 1 directory(ies).
 ```
+
+### Create Command
+
+Scaffold a new config file with all required exports pre-filled:
+
+```bash
+# Create a POST config in the current directory
+npx route-action-gen create post
+
+# Create a GET config in a specific directory
+npx route-action-gen create get app/api/posts/[postId]
+
+# Overwrite an existing config file
+npx route-action-gen create post --force
+```
+
+Body methods (`post`, `put`, `patch`) generate a template with a `body` validator. Non-body methods (`get`, `delete`, `options`, `head`) generate a simpler template without a body section.
 
 ### Supported Frameworks
 
-| Framework          | Flag Value        | Description                                                                      |
-| ------------------ | ----------------- | -------------------------------------------------------------------------------- |
-| Next.js App Router | `next-app-router` | Default. Generates for Next.js App Router (route handlers, server actions, etc.) |
+| Framework            | Flag Value          | Description                                                                      |
+| -------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| Auto-detect          | `auto`              | Default. Detects per directory: `pages/` uses Pages Router, otherwise App Router |
+| Next.js App Router   | `next-app-router`   | Generates for Next.js App Router (route handlers, server actions, etc.)          |
+| Next.js Pages Router | `next-pages-router` | Generates for Next.js Pages Router (API routes with default export)              |
 
 The framework system is extensible. New frameworks can be added by implementing the `FrameworkGenerator` interface.
 
@@ -202,25 +243,42 @@ type AuthFunc<TUser> = (request?: Request) => Promise<TUser>;
 
 ## Generated Files
 
-The files generated depend on the HTTP method. All files are output to a `.generated/` subdirectory.
+The files generated depend on the HTTP method and the framework. All files are output to a `.generated/` subdirectory. An entry point file is also created in the parent directory if it doesn't already exist.
 
-### Files Generated for All Methods
+### Entry Point File
 
-| File                     | Description                                                                 |
-| ------------------------ | --------------------------------------------------------------------------- |
-| `route.ts`               | Next.js route handler. Exports named functions like `GET`, `POST`, etc.     |
-| `client.ts`              | `RouteClient` class with typed methods for each HTTP method (non-React use) |
-| `use-route-[method].tsx` | React hook for the HTTP method                                              |
+The CLI creates an entry point file in the same directory as the config files (not inside `.generated/`) the first time it runs. This file re-exports from the generated route handler so Next.js can discover it:
 
-### Additional Files for Body Methods (POST, PUT, PATCH)
+- **App Router**: `route.ts` containing `export * from "./.generated/route";`
+- **Pages Router**: `index.ts` containing `export { default } from "./.generated/route";`
 
-| File                      | Description                                                      |
-| ------------------------- | ---------------------------------------------------------------- |
-| `server.function.ts`      | Next.js server action wrapping the handler (`"use server"`)      |
-| `form.action.ts`          | Next.js form action wrapping the handler (`"use server"`)        |
-| `use-server-function.tsx` | React hook for calling the server function with `useTransition`  |
-| `use-form-action.tsx`     | React hook for form actions using `useActionState`               |
-| `form-components.tsx`     | Auto-generated form input/label components from your Zod schemas |
+If the entry point file already exists, it will **not** be overwritten.
+
+### Files Generated for All Methods (App Router & Pages Router)
+
+| File                     | Description                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `route.ts`               | Route handler. App Router exports named functions (`GET`, `POST`, etc.); Pages Router exports a default handler |
+| `client.ts`              | `RouteClient` class with typed methods for each HTTP method (non-React use)                                     |
+| `use-route-[method].tsx` | React hook for the HTTP method                                                                                  |
+| `README.md`              | Auto-generated documentation for the generated files                                                            |
+
+### Additional Files for Body Methods (POST, PUT, PATCH) -- App Router Only
+
+| File                      | Description                                                     |
+| ------------------------- | --------------------------------------------------------------- |
+| `server.function.ts`      | Next.js server action wrapping the handler (`"use server"`)     |
+| `form.action.ts`          | Next.js form action wrapping the handler (`"use server"`)       |
+| `use-server-function.tsx` | React hook for calling the server function with `useTransition` |
+| `use-form-action.tsx`     | React hook for form actions using `useActionState`              |
+
+### Additional Files When Body/Param Fields Exist (App Router & Pages Router)
+
+| File                  | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `form-components.tsx` | Auto-generated form input/label components from your Zod schemas |
+
+> **Note:** Server functions and form actions (`server.function.ts`, `form.action.ts`, `use-server-function.tsx`, `use-form-action.tsx`) are **not** generated for Pages Router, as `"use server"` directives are an App Router feature.
 
 ### route.ts
 
@@ -418,12 +476,13 @@ Field names follow the pattern `body.<fieldName>` for body fields and `params.<f
 
 The package provides several runtime entry points used by generated code:
 
-| Entry Point                  | Description                                                                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `route-action-gen/lib`       | Core utilities: `createRequestValidator`, `successResponse`, `errorResponse`, `HandlerFunc`, `AuthFunc`, `mapZodError` |
-| `route-action-gen/lib/next`  | Next.js helpers: `createRoute`, `createServerFunction`, `createFormAction`                                             |
-| `route-action-gen/lib/react` | React helpers: `createInput`, `createLabel`, `createFormWithAction`                                                    |
-| `route-action-gen/lib/node`  | Node.js helpers for server-side usage                                                                                  |
+| Entry Point                       | Description                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `route-action-gen/lib`            | Core utilities: `createRequestValidator`, `successResponse`, `errorResponse`, `HandlerFunc`, `AuthFunc`, `mapZodError` |
+| `route-action-gen/lib/next`       | Next.js App Router helpers: `createRoute`, `createServerFunction`, `createFormAction`                                  |
+| `route-action-gen/lib/next/pages` | Next.js Pages Router helpers: `createPagesRoute`                                                                       |
+| `route-action-gen/lib/react`      | React helpers: `createInput`, `createLabel`, `createFormWithAction`                                                    |
+| `route-action-gen/lib/node`       | Node.js helpers for server-side usage                                                                                  |
 
 ## Examples
 
@@ -557,7 +616,9 @@ Place both `route.get.config.ts` and `route.post.config.ts` in the same director
 
 ## Project Structure
 
-A typical project using `route-action-gen` looks like this:
+### App Router
+
+A typical App Router project using `route-action-gen` looks like this:
 
 ```
 app/
@@ -566,8 +627,9 @@ app/
       [postId]/
         route.get.config.ts        # Your config (you write this)
         route.post.config.ts       # Your config (you write this)
+        route.ts                   # Entry point (auto-created if missing)
         .generated/                # Auto-generated (do not edit)
-          route.ts                 #   Next.js route handler
+          route.ts                 #   Next.js route handler (named exports)
           client.ts                #   RouteClient class
           use-route-get.tsx        #   GET hook
           use-route-post.tsx       #   POST hook
@@ -576,7 +638,31 @@ app/
           use-server-function.tsx   #   Server function hook
           use-form-action.tsx       #   Form action hook
           form-components.tsx       #   Form components
+          README.md                #   Generated documentation
 ```
+
+### Pages Router
+
+Pages Router projects are also supported. Config files placed under `pages/` are automatically detected:
+
+```
+pages/
+  api/
+    users/
+      [userId]/
+        route.get.config.ts        # Your config (you write this)
+        route.post.config.ts       # Your config (you write this)
+        index.ts                   # Entry point (auto-created if missing)
+        .generated/                # Auto-generated (do not edit)
+          route.ts                 #   API route handler (default export)
+          client.ts                #   RouteClient class
+          use-route-get.tsx        #   GET hook
+          use-route-post.tsx       #   POST hook
+          form-components.tsx       #   Form components
+          README.md                #   Generated documentation
+```
+
+> **Note:** Pages Router does not generate `server.function.ts`, `form.action.ts`, `use-server-function.tsx`, or `use-form-action.tsx` since server actions are an App Router feature.
 
 Consider adding `.generated/` to your `.gitignore` and running `route-action-gen` as part of your build pipeline, or keep them checked in for editor autocompletion -- the choice is yours.
 
