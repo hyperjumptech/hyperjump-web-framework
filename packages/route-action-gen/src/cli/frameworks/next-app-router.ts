@@ -41,6 +41,7 @@ import { formActionTemplate } from "./next-app-router/templates/form-action.ts.j
 import { useServerFunctionTemplate } from "./next-app-router/templates/use-server-function.tsx.js";
 import { useFormActionTemplate } from "./next-app-router/templates/use-form-action.tsx.js";
 import { formComponentsTemplate } from "./next-app-router/templates/form-components.tsx.js";
+import { readmeTemplate } from "./next-app-router/templates/readme.md.js";
 
 export class NextAppRouterGenerator implements FrameworkGenerator {
   name = "next-app-router";
@@ -72,6 +73,8 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
     // Find body methods (POST, PUT, PATCH) for server function / form action generation
     const bodyConfigs = configs.filter((c) => BODY_METHODS.includes(c.method));
 
+    let hasFormComponents = false;
+
     if (bodyConfigs.length > 0) {
       // Use the first body method config for server function, form action, and hooks
       const primaryBodyConfig = bodyConfigs[0]!;
@@ -86,8 +89,19 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
       const allParamFields = bodyConfigs.flatMap((c) => c.paramFields);
       if (allBodyFields.length > 0 || allParamFields.length > 0) {
         files.push(this.generateFormComponents(primaryBodyConfig));
+        hasFormComponents = true;
       }
     }
+
+    // Always generate README.md as the last file
+    files.push(
+      this.generateReadme(
+        routePath,
+        configs,
+        bodyConfigs.length > 0,
+        hasFormComponents,
+      ),
+    );
 
     return files;
   }
@@ -477,6 +491,26 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
     return {
       fileName: "form-components.tsx",
       content: formComponentsTemplate({ fields: fields.join("\n") }),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // README.md
+  // ---------------------------------------------------------------------------
+  private generateReadme(
+    routePath: string,
+    configs: ParsedConfig[],
+    hasBodyMethods: boolean,
+    hasFormComponents: boolean,
+  ): GeneratedFile {
+    return {
+      fileName: "README.md",
+      content: readmeTemplate({
+        routePath,
+        methods: configs.map((c) => c.method),
+        hasBodyMethods,
+        hasFormComponents,
+      }),
     };
   }
 }
