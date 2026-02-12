@@ -43,6 +43,10 @@
       "types": "./dist/lib/next/index.d.ts",
       "import": "./dist/lib/next/index.js"
     },
+    "./lib/next/pages": {
+      "types": "./dist/lib/next/pages/index.d.ts",
+      "import": "./dist/lib/next/pages/index.js"
+    },
     "./lib/react": {
       "types": "./dist/lib/react/index.d.ts",
       "import": "./dist/lib/react/index.js"

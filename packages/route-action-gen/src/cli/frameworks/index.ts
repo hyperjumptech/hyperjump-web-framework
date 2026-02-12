@@ -5,9 +5,13 @@
 
 import type { FrameworkGenerator } from "../types.js";
 import { NextAppRouterGenerator } from "./next-app-router.js";
+import { NextPagesRouterGenerator } from "./next-pages-router.js";
 
 /** All available framework generators */
-const generators: FrameworkGenerator[] = [new NextAppRouterGenerator()];
+const generators: FrameworkGenerator[] = [
+  new NextAppRouterGenerator(),
+  new NextPagesRouterGenerator(),
+];
 
 /** Registry mapping framework name -> generator */
 const registry = new Map<string, FrameworkGenerator>(

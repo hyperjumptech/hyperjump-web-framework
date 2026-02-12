@@ -12,3 +12,4 @@ export {
   processFormAction,
   processServerFunction,
 } from "./process.js";
+export { createPagesRoute } from "./pages/index.js";

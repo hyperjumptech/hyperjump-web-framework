@@ -390,6 +390,12 @@ describe("framework registry", () => {
     expect(generator!.name).toBe("next-app-router");
   });
 
+  it("returns the next-pages-router generator", () => {
+    const generator = getFrameworkGenerator("next-pages-router");
+    expect(generator).toBeDefined();
+    expect(generator!.name).toBe("next-pages-router");
+  });
+
   it("returns undefined for unknown framework", () => {
     expect(getFrameworkGenerator("unknown")).toBeUndefined();
   });
@@ -397,6 +403,7 @@ describe("framework registry", () => {
   it("lists available frameworks", () => {
     const frameworks = getAvailableFrameworks();
     expect(frameworks).toContain("next-app-router");
+    expect(frameworks).toContain("next-pages-router");
   });
 
   it("has a default framework", () => {
@@ -664,6 +671,184 @@ describe("NextAppRouterGenerator", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Next.js Pages Router Generator
+// ---------------------------------------------------------------------------
+
+describe("NextPagesRouterGenerator", () => {
+  const generator = getFrameworkGenerator("next-pages-router")!;
+
+  describe("resolveRoutePath", () => {
+    it("extracts route path from pages directory", () => {
+      expect(
+        generator.resolveRoutePath("/project/pages/api/posts/[postId]"),
+      ).toBe("/api/posts/[postId]");
+    });
+
+    it("handles nested pages directories", () => {
+      expect(generator.resolveRoutePath("/project/src/pages/api/users")).toBe(
+        "/api/users",
+      );
+    });
+  });
+
+  describe("generate", () => {
+    it("generates correct files for POST + GET config (no server actions)", () => {
+      const postConfig = parseConfigFile(
+        samplePostConfig,
+        "post",
+        "route.post.config.ts",
+      );
+      const getConfig = parseConfigFile(
+        sampleGetConfig,
+        "get",
+        "route.get.config.ts",
+      );
+
+      const files = generator.generate({
+        directory: "/project/pages/api/posts/[postId]",
+        routePath: "/api/posts/[postId]",
+        configs: [getConfig, postConfig],
+      });
+
+      const fileNames = files.map((f) => f.fileName).sort();
+
+      // Should contain these files
+      expect(fileNames).toContain("route.ts");
+      expect(fileNames).toContain("client.ts");
+      expect(fileNames).toContain("use-route-get.tsx");
+      expect(fileNames).toContain("use-route-post.tsx");
+      expect(fileNames).toContain("form-components.tsx");
+      expect(fileNames).toContain("README.md");
+
+      // Should NOT contain App Router-only files
+      expect(fileNames).not.toContain("server.function.ts");
+      expect(fileNames).not.toContain("form.action.ts");
+      expect(fileNames).not.toContain("use-server-function.tsx");
+      expect(fileNames).not.toContain("use-form-action.tsx");
+    });
+
+    it("generates only route + client + hook + readme for GET-only config", () => {
+      const getConfig = parseConfigFile(
+        sampleGetConfig,
+        "get",
+        "route.get.config.ts",
+      );
+
+      const files = generator.generate({
+        directory: "/project/pages/api/posts/[postId]",
+        routePath: "/api/posts/[postId]",
+        configs: [getConfig],
+      });
+
+      const fileNames = files.map((f) => f.fileName).sort();
+
+      expect(fileNames).toContain("route.ts");
+      expect(fileNames).toContain("client.ts");
+      expect(fileNames).toContain("use-route-get.tsx");
+      expect(fileNames).toContain("README.md");
+      // No body methods → no form-components
+      expect(fileNames).not.toContain("form-components.tsx");
+      expect(fileNames).not.toContain("server.function.ts");
+      expect(fileNames).not.toContain("form.action.ts");
+    });
+
+    it("route.ts uses createPagesRoute with default export", () => {
+      const postConfig = parseConfigFile(
+        samplePostConfig,
+        "post",
+        "route.post.config.ts",
+      );
+      const getConfig = parseConfigFile(
+        sampleGetConfig,
+        "get",
+        "route.get.config.ts",
+      );
+
+      const files = generator.generate({
+        directory: "/project/pages/api/posts/[postId]",
+        routePath: "/api/posts/[postId]",
+        configs: [getConfig, postConfig],
+      });
+
+      const routeFile = files.find((f) => f.fileName === "route.ts")!;
+      expect(routeFile.content).toContain("createPagesRoute");
+      expect(routeFile.content).toContain("export default");
+      expect(routeFile.content).toContain("route.post.config");
+      expect(routeFile.content).toContain("route.get.config");
+      expect(routeFile.content).toContain('"postId"');
+      // Should NOT use App Router patterns
+      expect(routeFile.content).not.toContain("export const GET");
+      expect(routeFile.content).not.toContain("export const POST");
+    });
+
+    it("route.ts includes dynamic segment param names", () => {
+      const getConfig = parseConfigFile(
+        sampleGetConfig,
+        "get",
+        "route.get.config.ts",
+      );
+
+      const files = generator.generate({
+        directory: "/project/pages/api/posts/[postId]",
+        routePath: "/api/posts/[postId]",
+        configs: [getConfig],
+      });
+
+      const routeFile = files.find((f) => f.fileName === "route.ts")!;
+      expect(routeFile.content).toContain('["postId"]');
+    });
+
+    it("client.ts generates methods for each HTTP method", () => {
+      const postConfig = parseConfigFile(
+        samplePostConfig,
+        "post",
+        "route.post.config.ts",
+      );
+      const getConfig = parseConfigFile(
+        sampleGetConfig,
+        "get",
+        "route.get.config.ts",
+      );
+
+      const files = generator.generate({
+        directory: "/project/pages/api/posts/[postId]",
+        routePath: "/api/posts/[postId]",
+        configs: [getConfig, postConfig],
+      });
+
+      const clientFile = files.find((f) => f.fileName === "client.ts")!;
+      expect(clientFile.content).toContain("export class RouteClient");
+      expect(clientFile.content).toContain("async post(");
+      expect(clientFile.content).toContain("async get(");
+    });
+
+    it("all generated files have the auto-generated header", () => {
+      const postConfig = parseConfigFile(
+        samplePostConfig,
+        "post",
+        "route.post.config.ts",
+      );
+      const getConfig = parseConfigFile(
+        sampleGetConfig,
+        "get",
+        "route.get.config.ts",
+      );
+
+      const files = generator.generate({
+        directory: "/project/pages/api/posts/[postId]",
+        routePath: "/api/posts/[postId]",
+        configs: [getConfig, postConfig],
+      });
+
+      for (const file of files) {
+        const hasHeader = file.content.includes("AUTOMATICALLY GENERATED");
+        expect(hasHeader).toBe(true);
+      }
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // End-to-end: generate function
 // ---------------------------------------------------------------------------
 
@@ -757,5 +942,59 @@ describe("generate (end-to-end)", () => {
 
     expect(result.success).toBe(true);
     expect(result.generated).toHaveLength(2);
+  });
+
+  it("generates files for Pages Router framework", () => {
+    const writtenFiles: Record<string, string> = {};
+    const createdDirs: string[] = [];
+
+    const deps: CliDeps = {
+      globSync: () => [
+        "pages/api/posts/[postId]/route.post.config.ts",
+        "pages/api/posts/[postId]/route.get.config.ts",
+      ],
+      readFileSync: (filePath: string) => {
+        if (filePath.includes("route.post.config")) return samplePostConfig;
+        if (filePath.includes("route.get.config")) return sampleGetConfig;
+        return "";
+      },
+      writeFileSync: (filePath: string, content: string) => {
+        writtenFiles[filePath] = content;
+      },
+      mkdirSync: (dirPath: string) => {
+        createdDirs.push(dirPath);
+      },
+      cwd: () => "/project",
+    };
+
+    const result = generate(deps, "next-pages-router");
+
+    expect(result.success).toBe(true);
+    expect(result.generated).toHaveLength(1);
+    expect(result.generated![0]!.files).toContain("route.ts");
+    expect(result.generated![0]!.files).toContain("client.ts");
+    expect(result.generated![0]!.files).toContain("use-route-get.tsx");
+    expect(result.generated![0]!.files).toContain("use-route-post.tsx");
+    expect(result.generated![0]!.files).toContain("form-components.tsx");
+    expect(result.generated![0]!.files).toContain("README.md");
+
+    // Should NOT contain App Router-only files
+    expect(result.generated![0]!.files).not.toContain("server.function.ts");
+    expect(result.generated![0]!.files).not.toContain("form.action.ts");
+    expect(result.generated![0]!.files).not.toContain(
+      "use-server-function.tsx",
+    );
+    expect(result.generated![0]!.files).not.toContain("use-form-action.tsx");
+
+    // Verify .generated directory was created
+    expect(createdDirs.length).toBeGreaterThan(0);
+    expect(createdDirs[0]).toContain(".generated");
+
+    // Verify route.ts uses createPagesRoute
+    const routeContent = Object.entries(writtenFiles).find(([k]) =>
+      k.endsWith("route.ts"),
+    )?.[1];
+    expect(routeContent).toContain("createPagesRoute");
+    expect(routeContent).toContain("export default");
   });
 });
