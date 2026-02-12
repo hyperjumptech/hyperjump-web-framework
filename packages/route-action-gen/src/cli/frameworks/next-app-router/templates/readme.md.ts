@@ -4,7 +4,7 @@
  * Produces a markdown file describing every file in the .generated/ directory.
  */
 
-import { GENERATED_HEADER } from "../../../constants.js";
+import { GENERATED_NOTICE } from "../../../constants.js";
 
 export interface ReadmeTemplateInput {
   /** URL route path, e.g. "/api/posts/[postId]" */
@@ -23,7 +23,7 @@ export function readmeTemplate(input: ReadmeTemplateInput): string {
   const methodList = methods.map((m) => m.toUpperCase()).join(", ");
 
   const lines: string[] = [
-    `<!-- ${GENERATED_HEADER} -->`,
+    `<!-- ${GENERATED_NOTICE} -->`,
     ``,
     `# Generated files for \`${routePath}\``,
     ``,

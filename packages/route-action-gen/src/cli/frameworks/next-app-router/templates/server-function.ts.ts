@@ -5,6 +5,8 @@
  * with `createServerFunction` for server-side execution.
  */
 
+import { GENERATED_HEADER } from "../../../constants.js";
+
 export interface ServerFunctionTemplateData {
   /** Config file name without .ts extension, e.g. "route.post.config" */
   configFileBase: string;
@@ -13,7 +15,8 @@ export interface ServerFunctionTemplateData {
 }
 
 export function serverFunctionTemplate(d: ServerFunctionTemplateData): string {
-  return `"use server";
+  return `${GENERATED_HEADER}
+"use server";
 
 import {
   handler,
