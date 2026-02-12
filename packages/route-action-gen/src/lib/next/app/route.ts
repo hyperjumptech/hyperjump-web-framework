@@ -24,7 +24,16 @@ export const createRoute = <TResponse extends z.ZodType, Input>(
     const response = await processFunc(request, params);
 
     if (response.status === false) {
-      return new Response(response.message, { status: response.statusCode });
+      return new Response(
+        JSON.stringify({
+          message: response.message,
+          statusCode: response.statusCode,
+        }),
+        {
+          status: response.statusCode,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     return new Response(JSON.stringify(response.data), {

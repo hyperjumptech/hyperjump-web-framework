@@ -11,7 +11,7 @@ import {
  * @returns A form React component with the action
  */
 export const createFormWithAction = (
-  action: FormHTMLAttributes<HTMLFormElement>["action"]
+  action: FormHTMLAttributes<HTMLFormElement>["action"],
 ) => {
   const FormWithAction = ({
     children,
@@ -40,9 +40,12 @@ export const createInput = ({
   name,
   type,
   id,
+  ...defaultProps
 }: InputHTMLAttributes<HTMLInputElement>) => {
   const FormInput = (props: InputHTMLAttributes<HTMLInputElement>) => {
-    return <input type={type} name={name} id={id} {...props} />;
+    return (
+      <input type={type} name={name} id={id} {...defaultProps} {...props} />
+    );
   };
 
   return FormInput;

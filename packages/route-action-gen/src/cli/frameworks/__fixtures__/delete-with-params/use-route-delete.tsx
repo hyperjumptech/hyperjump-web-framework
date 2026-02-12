@@ -2,6 +2,8 @@
 /* eslint-disable */
 // biome-ignore-all lint: generated file
 // @ts-nocheck
+"use client";
+
 import { requestValidator, responseValidator } from "../route.delete.config";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";

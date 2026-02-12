@@ -32,6 +32,8 @@ export function useRouteMutationTemplate(
   d: UseRouteMutationTemplateData,
 ): string {
   return `${GENERATED_HEADER}
+"use client";
+
 import { requestValidator, responseValidator } from "../${d.configFileBase}";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";

@@ -25,7 +25,8 @@ export class RouteClient {
     });
 
     if (!response.ok) {
-      throw new Error(response.statusText);
+      const errorBody = await response.json();
+      throw new Error(errorBody.message ?? response.statusText);
     }
 
     const responseData = await response.json();

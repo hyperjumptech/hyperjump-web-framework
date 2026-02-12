@@ -27,6 +27,8 @@ export interface UseRouteGetTemplateData {
 
 export function useRouteGetTemplate(d: UseRouteGetTemplateData): string {
   return `${GENERATED_HEADER}
+"use client";
+
 import { requestValidator, responseValidator } from "../${d.configFileBase}";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
@@ -62,7 +64,7 @@ ${d.searchParamsLine}
       return;
     }
 
-    let isCleandUp = false;
+    let isCleanedUp = false;
     const thisLastFetchedAt = lastFetchedAt;
 
     const abortController = new AbortController();
@@ -84,22 +86,33 @@ ${d.fetchUrlCode}
         const response = await fetch(fetchURL, {
           signal: combinedSignal,
         });
-        const data = await response.json();
 
-        if (!isCleandUp && lastFetchedAt === thisLastFetchedAt) {
-          setData(data);
+        if (!response.ok) {
+          if (!isCleanedUp) {
+            const errorBody = await response.json();
+            setError(errorBody.message ?? response.statusText);
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (!isCleanedUp && lastFetchedAt === thisLastFetchedAt) {
+          const responseData = await response.json();
+          const validatedData = await responseValidator.parseAsync(responseData);
+          setData(validatedData);
           setLoading(false);
           setError(null);
         }
       } catch (error: unknown) {
-        if (!isCleandUp) {
+        if (!isCleanedUp) {
           setLoading(false);
 
           if (error instanceof Error && error.name === "TimeoutError") {
             setError("Timeout: It took more than 5 seconds to get the result!");
-          }
-          if (error instanceof Error && error.name === "AbortError") {
+          } else if (error instanceof Error && error.name === "AbortError") {
             setError(\`Fetch canceled by user\`);
+          } else {
+            setError(error instanceof Error ? error.message : "An unknown error occurred");
           }
         }
       }
@@ -108,7 +121,7 @@ ${d.fetchUrlCode}
     fetchData();
 
     return () => {
-      isCleandUp = true;
+      isCleanedUp = true;
       abortController.abort();
       abortControllerRef.current = null;
     };
