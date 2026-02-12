@@ -23,7 +23,8 @@ import {
   detectFrameworkGenerator,
   DEFAULT_FRAMEWORK,
 } from "./frameworks/index.js";
-import type { CliDeps, GenerationContext } from "./types.js";
+import type { CliDeps, GenerationContext, HttpMethod } from "./types.js";
+import { createConfigFile, isValidMethod } from "./create.js";
 
 // Re-export modules for testing
 export { scanConfigFiles } from "./scanner.js";
@@ -51,6 +52,11 @@ export type {
   FrameworkGenerator,
   HttpMethod,
 } from "./types.js";
+export {
+  createConfigFile,
+  getConfigTemplate,
+  isValidMethod,
+} from "./create.js";
 
 export const VERSION = "0.0.0";
 
@@ -61,13 +67,22 @@ Generate route handlers, server functions, form actions, and React hooks
 from route config files.
 
 Usage:
-  npx route-action-gen [options]
+  npx route-action-gen [options]           Scan and generate code
+  npx route-action-gen create <method> [directory]
+                                           Scaffold a new config file
+
+Commands:
+  create <method> [dir]   Create a route.<method>.config.ts file.
+                          Methods: get, post, put, delete, patch, options, head
+                          Directory defaults to the current directory.
+                          Use --force to overwrite an existing file.
 
 Options:
   --help                Show this help message
   --version             Show version number
   --framework <name>    Framework target (default: ${DEFAULT_FRAMEWORK})
                         Use "auto" to detect per directory (pages/ vs app/).
+  --force               Overwrite existing file (for create command)
 
 Available frameworks:
   auto, ${getAvailableFrameworks().join(", ")}
@@ -78,17 +93,26 @@ Config files:
   generate code in a .generated/ subdirectory.
 `.trim();
 
-interface CliArgs {
+export interface CliArgs {
+  command: "generate" | "create";
   help: boolean;
   version: boolean;
   framework: string;
+  /** HTTP method for the `create` command */
+  createMethod?: HttpMethod;
+  /** Target directory for the `create` command */
+  createDir?: string;
+  /** Overwrite existing file for the `create` command */
+  force: boolean;
 }
 
 export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
+    command: "generate",
     help: false,
     version: false,
     framework: DEFAULT_FRAMEWORK,
+    force: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -97,6 +121,8 @@ export function parseArgs(argv: string[]): CliArgs {
       args.help = true;
     } else if (arg === "--version" || arg === "-v") {
       args.version = true;
+    } else if (arg === "--force") {
+      args.force = true;
     } else if (arg === "--framework" || arg === "-f") {
       const next = argv[i + 1];
       if (!next || next.startsWith("-")) {
@@ -105,6 +131,40 @@ export function parseArgs(argv: string[]): CliArgs {
       }
       args.framework = next;
       i++; // skip next arg
+    } else if (arg === "create") {
+      args.command = "create";
+
+      // Next positional: HTTP method (required)
+      const methodArg = argv[i + 1];
+      if (!methodArg || methodArg.startsWith("-")) {
+        console.error(
+          "Error: create requires an HTTP method.\n" +
+            "Usage: route-action-gen create <method> [directory]\n" +
+            "Methods: get, post, put, delete, patch, options, head",
+        );
+        process.exit(1);
+      }
+
+      const method = methodArg.toLowerCase();
+      if (!isValidMethod(method)) {
+        console.error(
+          `Error: Invalid HTTP method "${methodArg}".\n` +
+            "Valid methods: get, post, put, delete, patch, options, head",
+        );
+        process.exit(1);
+      }
+
+      args.createMethod = method;
+      i++; // skip method arg
+
+      // Next positional: directory (optional)
+      const dirArg = argv[i + 1];
+      if (dirArg && !dirArg.startsWith("-")) {
+        args.createDir = dirArg;
+        i++; // skip dir arg
+      } else {
+        args.createDir = ".";
+      }
     }
   }
 
@@ -219,6 +279,21 @@ export function generate(
 }
 
 /**
+ * Build the real CLI dependency bag.
+ */
+function createDeps(): CliDeps {
+  return {
+    globSync: (pattern, options) => globSync(pattern, options),
+    readFileSync: (filePath) => fs.readFileSync(filePath, "utf-8"),
+    writeFileSync: (filePath, content) =>
+      fs.writeFileSync(filePath, content, "utf-8"),
+    mkdirSync: (dirPath, options) => fs.mkdirSync(dirPath, options),
+    existsSync: (filePath) => fs.existsSync(filePath),
+    cwd: () => process.cwd(),
+  };
+}
+
+/**
  * Main CLI entry point.
  */
 export function main() {
@@ -234,16 +309,26 @@ export function main() {
     process.exit(0);
   }
 
-  const deps: CliDeps = {
-    globSync: (pattern, options) => globSync(pattern, options),
-    readFileSync: (filePath) => fs.readFileSync(filePath, "utf-8"),
-    writeFileSync: (filePath, content) =>
-      fs.writeFileSync(filePath, content, "utf-8"),
-    mkdirSync: (dirPath, options) => fs.mkdirSync(dirPath, options),
-    existsSync: (filePath) => fs.existsSync(filePath),
-    cwd: () => process.cwd(),
-  };
+  const deps = createDeps();
 
+  if (args.command === "create") {
+    const result = createConfigFile(
+      deps,
+      args.createMethod!,
+      args.createDir!,
+      args.force,
+    );
+
+    if (!result.success) {
+      console.error(`Error: ${result.error}`);
+      process.exit(1);
+    }
+
+    console.log(`Created ${result.filePath}`);
+    return;
+  }
+
+  // Default: generate command
   console.log(`route-action-gen v${VERSION}`);
   console.log(
     `Framework: ${args.framework}${args.framework === "auto" ? " (detect per directory)" : ""}`,

@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "create:route": "route-action-gen create"
   },
   "dependencies": {
     "@workspace/env": "workspace:*",

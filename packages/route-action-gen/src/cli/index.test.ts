@@ -106,9 +106,11 @@ describe("parseArgs", () => {
     const result = parseArgs([]);
 
     // Assert
+    expect(result.command).toBe("generate");
     expect(result.help).toBe(false);
     expect(result.version).toBe(false);
     expect(result.framework).toBe("auto");
+    expect(result.force).toBe(false);
   });
 
   it("sets help to true when --help flag is passed", () => {
@@ -216,6 +218,100 @@ describe("parseArgs", () => {
     expect(result.help).toBe(false);
     expect(result.version).toBe(false);
     expect(result.framework).toBe("auto");
+  });
+
+  // create subcommand
+  it("parses create command with method", () => {
+    // Act
+    const result = parseArgs(["create", "get"]);
+
+    // Assert
+    expect(result.command).toBe("create");
+    expect(result.createMethod).toBe("get");
+    expect(result.createDir).toBe(".");
+  });
+
+  it("parses create command with method and directory", () => {
+    // Act
+    const result = parseArgs(["create", "post", "./app/api/users"]);
+
+    // Assert
+    expect(result.command).toBe("create");
+    expect(result.createMethod).toBe("post");
+    expect(result.createDir).toBe("./app/api/users");
+  });
+
+  it("parses create command with --force flag", () => {
+    // Act
+    const result = parseArgs(["create", "put", "./some/dir", "--force"]);
+
+    // Assert
+    expect(result.command).toBe("create");
+    expect(result.createMethod).toBe("put");
+    expect(result.createDir).toBe("./some/dir");
+    expect(result.force).toBe(true);
+  });
+
+  it("accepts uppercase method and normalizes to lowercase", () => {
+    // Act
+    const result = parseArgs(["create", "POST"]);
+
+    // Assert
+    expect(result.createMethod).toBe("post");
+  });
+
+  it("exits with error when create is passed without a method", () => {
+    // Setup
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+      _code?: string | number | null,
+    ) => {
+      throw new Error("process.exit");
+    }) as (code?: string | number | null) => never);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // Act & Assert
+    expect(() => parseArgs(["create"])).toThrow("process.exit");
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("create requires an HTTP method"),
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("exits with error when create is passed with an invalid method", () => {
+    // Setup
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+      _code?: string | number | null,
+    ) => {
+      throw new Error("process.exit");
+    }) as (code?: string | number | null) => never);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // Act & Assert
+    expect(() => parseArgs(["create", "foo"])).toThrow("process.exit");
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid HTTP method "foo"'),
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("parses all supported HTTP methods for create", () => {
+    const methods = [
+      "get",
+      "post",
+      "put",
+      "delete",
+      "patch",
+      "options",
+      "head",
+    ];
+    for (const method of methods) {
+      // Act
+      const result = parseArgs(["create", method]);
+
+      // Assert
+      expect(result.command).toBe("create");
+      expect(result.createMethod).toBe(method);
+    }
   });
 });
 
