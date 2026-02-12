@@ -1,6 +1,9 @@
 /**
  * Framework generator registry.
  * Maps framework names (used with --framework flag) to their generator instances.
+ *
+ * When no --framework flag is given (i.e. "auto"), the CLI detects the correct
+ * generator per directory based on whether the config lives under pages/ or app/.
  */
 
 import type { FrameworkGenerator } from "../types.js";
@@ -36,5 +39,26 @@ export function getAvailableFrameworks(): string[] {
   return Array.from(registry.keys());
 }
 
-/** Default framework name */
-export const DEFAULT_FRAMEWORK = "next-app-router";
+/**
+ * Auto-detect which framework generator to use based on the config file's
+ * directory path. If the path contains `/pages/`, use Pages Router; otherwise
+ * default to App Router.
+ *
+ * @param directory - Absolute directory path containing the config files
+ * @returns The appropriate framework generator
+ */
+export function detectFrameworkGenerator(
+  directory: string,
+): FrameworkGenerator {
+  if (directory.includes("/pages/")) {
+    return registry.get("next-pages-router")!;
+  }
+  return registry.get("next-app-router")!;
+}
+
+/**
+ * Default framework name.
+ * "auto" means the CLI will detect per-directory whether to use
+ * App Router or Pages Router based on the config file location.
+ */
+export const DEFAULT_FRAMEWORK = "auto";

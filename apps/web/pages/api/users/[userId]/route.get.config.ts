@@ -7,7 +7,6 @@ import {
 } from "route-action-gen/lib";
 import { getUserById, User } from "@/models/user";
 import { z } from "zod";
-import { getPostById } from "@/models/post";
 
 const auth: AuthFunc<User> = async () => {
   const user = await getUserById("1");
@@ -15,19 +14,16 @@ const auth: AuthFunc<User> = async () => {
   return user;
 };
 
-const paramsValidator = z.object({
-  postId: z.string().min(1),
-});
-
 export const requestValidator = createRequestValidator({
   user: auth,
-  params: paramsValidator,
+  params: z.object({
+    userId: z.string().min(1),
+  }),
 });
 
 export const responseValidator = z.object({
   id: z.string().min(1),
-  title: z.string().min(1),
-  content: z.string().min(1),
+  name: z.string().min(1),
 });
 
 export const handler: HandlerFunc<
@@ -36,13 +32,12 @@ export const handler: HandlerFunc<
   undefined
 > = async (data) => {
   const { params } = data;
-  const post = await getPostById(params.postId);
-  if (!post) {
-    return errorResponse("Post not found", undefined, 404);
+  const user = await getUserById(params.userId);
+  if (!user) {
+    return errorResponse("User not found", undefined, 404);
   }
   return successResponse({
-    id: post.id,
-    title: post.title,
-    content: post.content,
+    id: user.id,
+    name: user.name,
   });
 };

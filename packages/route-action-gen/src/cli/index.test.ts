@@ -107,7 +107,7 @@ describe("parseArgs", () => {
     // Assert
     expect(result.help).toBe(false);
     expect(result.version).toBe(false);
-    expect(result.framework).toBe("next-app-router");
+    expect(result.framework).toBe("auto");
   });
 
   it("sets help to true when --help flag is passed", () => {
@@ -214,7 +214,7 @@ describe("parseArgs", () => {
     // Assert
     expect(result.help).toBe(false);
     expect(result.version).toBe(false);
-    expect(result.framework).toBe("next-app-router");
+    expect(result.framework).toBe("auto");
   });
 });
 
@@ -237,7 +237,9 @@ describe("HELP_TEXT", () => {
     expect(HELP_TEXT).toContain("--help");
     expect(HELP_TEXT).toContain("--version");
     expect(HELP_TEXT).toContain("--framework");
+    expect(HELP_TEXT).toContain("auto");
     expect(HELP_TEXT).toContain("next-app-router");
+    expect(HELP_TEXT).toContain("next-pages-router");
   });
 });
 
@@ -351,7 +353,7 @@ describe("main", () => {
       expect.stringContaining("route-action-gen"),
     );
     expect(logSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Framework: next-app-router"),
+      expect.stringContaining("Framework: auto"),
     );
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringContaining("Scanning for config files"),
@@ -422,5 +424,24 @@ describe("main", () => {
     // Assert
     expect(logSpy).toHaveBeenCalledWith("Framework: next-app-router");
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("Done!"));
+  });
+
+  it("prints detect per directory message when using auto framework", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+
+    // Act
+    main();
+
+    // Assert
+    expect(logSpy).toHaveBeenCalledWith(
+      "Framework: auto (detect per directory)",
+    );
   });
 });

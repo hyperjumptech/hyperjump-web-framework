@@ -6,18 +6,16 @@ import {
   errorResponse,
   HandlerFunc,
 } from "route-action-gen/lib";
-import { getUserById, User } from "@/models/user";
-import { getPostById, updatePostById } from "@/models/post";
+import { getUserById, updateUser, User } from "@/models/user";
 
 // The body validator
 const bodyValidator = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
+  name: z.string().min(1),
 });
 
 // The dyanamic params validator
 const paramsValidator = z.object({
-  postId: z.string().min(1),
+  userId: z.string().min(1),
 });
 
 // The auth function to authorize the request
@@ -46,22 +44,21 @@ export const handler: HandlerFunc<
   undefined
 > = async (data) => {
   const { body, params, user } = data;
-  const post = await getPostById(params.postId);
-  if (!post) {
-    return errorResponse("Post not found", undefined, 404);
+  const userData = await getUserById(params.userId);
+  if (!userData) {
+    return errorResponse("User not found", undefined, 404);
   }
-  if (post.userId !== user.id) {
+  if (userData.id !== user.id) {
     return errorResponse(
-      "User does not have permission to update this post",
+      "User does not have permission to update this user",
       undefined,
       403,
     );
   }
 
-  await updatePostById(params.postId, {
-    title: body.title,
-    content: body.content,
+  await updateUser(params.userId, {
+    name: body.name,
   });
 
-  return successResponse({ id: post.id });
+  return successResponse({ id: user.id });
 };

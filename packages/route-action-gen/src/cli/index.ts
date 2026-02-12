@@ -20,6 +20,7 @@ import { parseConfigFile } from "./parser.js";
 import {
   getFrameworkGenerator,
   getAvailableFrameworks,
+  detectFrameworkGenerator,
   DEFAULT_FRAMEWORK,
 } from "./frameworks/index.js";
 import type { CliDeps, GenerationContext } from "./types.js";
@@ -38,6 +39,7 @@ export {
 export {
   getFrameworkGenerator,
   getAvailableFrameworks,
+  detectFrameworkGenerator,
   DEFAULT_FRAMEWORK,
 } from "./frameworks/index.js";
 export type {
@@ -64,9 +66,10 @@ Options:
   --help                Show this help message
   --version             Show version number
   --framework <name>    Framework target (default: ${DEFAULT_FRAMEWORK})
+                        Use "auto" to detect per directory (pages/ vs app/).
 
 Available frameworks:
-  ${getAvailableFrameworks().join(", ")}
+  auto, ${getAvailableFrameworks().join(", ")}
 
 Config files:
   Create route.[method].config.ts files (e.g., route.post.config.ts)
@@ -111,7 +114,7 @@ export function parseArgs(argv: string[]): CliArgs {
  * Core generation function. Separated from CLI for testability.
  *
  * @param deps - Injected dependencies (fs, glob, etc.)
- * @param frameworkName - Which framework generator to use
+ * @param frameworkName - Which framework generator to use, or "auto" to detect per directory
  * @returns Result with success status and list of generated files
  */
 export function generate(
@@ -122,12 +125,17 @@ export function generate(
   generated?: { directory: string; files: string[] }[];
   error?: string;
 } {
-  const generator = getFrameworkGenerator(frameworkName);
-  if (!generator) {
-    return {
-      success: false,
-      error: `Unknown framework: "${frameworkName}". Available: ${getAvailableFrameworks().join(", ")}`,
-    };
+  const isAuto = frameworkName === "auto";
+
+  // When not auto, resolve the generator once up-front
+  if (!isAuto) {
+    const generator = getFrameworkGenerator(frameworkName);
+    if (!generator) {
+      return {
+        success: false,
+        error: `Unknown framework: "${frameworkName}". Available: auto, ${getAvailableFrameworks().join(", ")}`,
+      };
+    }
   }
 
   const cwd = deps.cwd();
@@ -144,6 +152,11 @@ export function generate(
   const results: { directory: string; files: string[] }[] = [];
 
   for (const group of groups) {
+    // Pick the right generator for this directory
+    const generator = isAuto
+      ? detectFrameworkGenerator(group.directory)
+      : getFrameworkGenerator(frameworkName)!;
+
     // Parse each config file in the group
     const parsedConfigs = group.configs.map((scanned) => {
       const content = deps.readFileSync(scanned.absolutePath);
@@ -208,7 +221,9 @@ export function main() {
   };
 
   console.log(`route-action-gen v${VERSION}`);
-  console.log(`Framework: ${args.framework}`);
+  console.log(
+    `Framework: ${args.framework}${args.framework === "auto" ? " (detect per directory)" : ""}`,
+  );
   console.log(`Scanning for config files in: ${deps.cwd()}\n`);
 
   const result = generate(deps, args.framework);

@@ -12,6 +12,7 @@ import {
   generate,
   getFrameworkGenerator,
   getAvailableFrameworks,
+  detectFrameworkGenerator,
   DEFAULT_FRAMEWORK,
 } from "./cli/index.js";
 import type { CliDeps } from "./cli/types.js";
@@ -406,8 +407,23 @@ describe("framework registry", () => {
     expect(frameworks).toContain("next-pages-router");
   });
 
-  it("has a default framework", () => {
-    expect(DEFAULT_FRAMEWORK).toBe("next-app-router");
+  it("has auto as the default framework", () => {
+    expect(DEFAULT_FRAMEWORK).toBe("auto");
+  });
+
+  it("detects App Router for directories under /app/", () => {
+    const gen = detectFrameworkGenerator("/project/app/api/posts/[postId]");
+    expect(gen.name).toBe("next-app-router");
+  });
+
+  it("detects Pages Router for directories under /pages/", () => {
+    const gen = detectFrameworkGenerator("/project/pages/api/posts/[postId]");
+    expect(gen.name).toBe("next-pages-router");
+  });
+
+  it("defaults to App Router for unknown paths", () => {
+    const gen = detectFrameworkGenerator("/project/src/api/posts");
+    expect(gen.name).toBe("next-app-router");
   });
 });
 
@@ -918,7 +934,7 @@ describe("generate (end-to-end)", () => {
       cwd: () => "/project",
     };
 
-    const result = generate(deps, "next-app-router");
+    const result = generate(deps, "auto");
     expect(result.success).toBe(false);
     expect(result.error).toContain("No route config files found");
   });
@@ -996,5 +1012,89 @@ describe("generate (end-to-end)", () => {
     )?.[1];
     expect(routeContent).toContain("createPagesRoute");
     expect(routeContent).toContain("export default");
+  });
+
+  it("auto-detects App Router for configs under app/", () => {
+    const writtenFiles: Record<string, string> = {};
+
+    const deps: CliDeps = {
+      globSync: () => ["app/api/posts/[postId]/route.get.config.ts"],
+      readFileSync: () => sampleGetConfig,
+      writeFileSync: (filePath: string, content: string) => {
+        writtenFiles[filePath] = content;
+      },
+      mkdirSync: () => {},
+      cwd: () => "/project",
+    };
+
+    const result = generate(deps, "auto");
+
+    expect(result.success).toBe(true);
+    const routeContent = Object.entries(writtenFiles).find(([k]) =>
+      k.endsWith("route.ts"),
+    )?.[1];
+    // App Router uses createRoute with named exports
+    expect(routeContent).toContain("createRoute");
+    expect(routeContent).toContain("export const GET");
+  });
+
+  it("auto-detects Pages Router for configs under pages/", () => {
+    const writtenFiles: Record<string, string> = {};
+
+    const deps: CliDeps = {
+      globSync: () => ["pages/api/posts/[postId]/route.get.config.ts"],
+      readFileSync: () => sampleGetConfig,
+      writeFileSync: (filePath: string, content: string) => {
+        writtenFiles[filePath] = content;
+      },
+      mkdirSync: () => {},
+      cwd: () => "/project",
+    };
+
+    const result = generate(deps, "auto");
+
+    expect(result.success).toBe(true);
+    const routeContent = Object.entries(writtenFiles).find(([k]) =>
+      k.endsWith("route.ts"),
+    )?.[1];
+    // Pages Router uses createPagesRoute with default export
+    expect(routeContent).toContain("createPagesRoute");
+    expect(routeContent).toContain("export default");
+  });
+
+  it("auto-detects mixed App Router and Pages Router in the same project", () => {
+    const writtenFiles: Record<string, string> = {};
+
+    const deps: CliDeps = {
+      globSync: () => [
+        "app/api/posts/[postId]/route.get.config.ts",
+        "pages/api/users/route.get.config.ts",
+      ],
+      readFileSync: () => sampleGetConfig,
+      writeFileSync: (filePath: string, content: string) => {
+        writtenFiles[filePath] = content;
+      },
+      mkdirSync: () => {},
+      cwd: () => "/project",
+    };
+
+    const result = generate(deps, "auto");
+
+    expect(result.success).toBe(true);
+    expect(result.generated).toHaveLength(2);
+
+    // App Router directory should use createRoute
+    const appRouteContent = Object.entries(writtenFiles).find(
+      ([k]) => k.includes("/app/") && k.endsWith("route.ts"),
+    )?.[1];
+    expect(appRouteContent).toContain("createRoute");
+    expect(appRouteContent).toContain("export const GET");
+
+    // Pages Router directory should use createPagesRoute
+    const pagesRouteContent = Object.entries(writtenFiles).find(
+      ([k]) => k.includes("/pages/") && k.endsWith("route.ts"),
+    )?.[1];
+    expect(pagesRouteContent).toContain("createPagesRoute");
+    expect(pagesRouteContent).toContain("export default");
   });
 });
