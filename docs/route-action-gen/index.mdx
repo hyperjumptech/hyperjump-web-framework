@@ -1,0 +1,41 @@
+---
+title: Route Action Gen
+---
+
+Route Action Gen is a code generation CLI that produces type-safe route handlers, React hooks, server functions, form actions, and form components from declarative config files.
+
+It supports:
+
+- [Next.js Route Handlers (App Router)](https://nextjs.org/docs/app/getting-started/route-handlers)
+- [Next.js API Routes (Pages Router)](https://nextjs.org/docs/pages/building-your-application/routing/api-routes)
+- [React Server Functions](https://react.dev/reference/rsc/server-functions)
+- [React Form Actions](https://react.dev/reference/react/useActionState)
+
+## Installation
+
+```package-install
+npm install route-action-gen
+```
+
+## Why use this tool?
+
+There are many ways to get and update data in a server. You can use route handlers, server functions, or form actions. But they all share the same boilerplate: parsing the request, validating input, handling errors, and returning typed responses.
+
+Route Action Gen lets you focus on the main logic. You declare validators and a handler in a config file, then the CLI generates all the boilerplate for you. Every endpoint will be:
+
+- **Strongly typed** -- both request and response are fully typed end to end, from the route handler down to the React hook in your client component.
+- **Consistent** -- every endpoint follows the same structure and naming convention.
+- **Easily parsable** -- you can quickly identify the behavior of any endpoint by looking at its config: what data it expects in the body, params, headers, or search params, and what the response looks like.
+
+## How it works
+
+1. You create a `route.[method].config.ts` file in the directory where the route lives.
+2. You define a `requestValidator`, a `responseValidator`, and a `handler` function in that config file.
+3. You run `npx route-action-gen` and the CLI scans for all config files, then generates code in a `.generated/` directory.
+4. An entry point file (`route.ts` for App Router, `index.ts` for Pages Router) is created automatically if it does not exist. It re-exports from `.generated/`.
+
+For App Router, generated files live in `.generated/` inside the config directory (e.g. `app/api/posts/.generated/`). For Pages Router, generated files are placed at the project root under `.generated/` in a mirror of the config path (e.g. `.generated/pages/api/users/`). This keeps them outside of `pages/` so Next.js does not treat them as API routes.
+
+The CLI supports both Next.js App Router and Pages Router. By default it uses **auto** detection: if the config file is inside a `pages/` directory it generates Pages Router code, otherwise it generates App Router code.
+
+Read the [Quick Start](./quick-start.mdx) guide to get going, or jump to the [Config File](./config-file.mdx) reference for the full spec.

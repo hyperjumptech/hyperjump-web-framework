@@ -1,0 +1,225 @@
+---
+title: Quick Start
+---
+
+This guide walks you through creating your first route handler with Route Action Gen.
+
+## 1. Install the package
+
+```package-install
+npm install route-action-gen
+```
+
+## 2. Scaffold a config file
+
+Use the `create` command to scaffold a new config file. For example, to create a GET endpoint at `app/api/health/`:
+
+```bash
+npx route-action-gen create get app/api/health
+```
+
+This creates `app/api/health/route.get.config.ts` with a starter template.
+
+You can also create the file manually. The naming convention is:
+
+```
+route.[method].config.ts
+```
+
+where `[method]` is one of: `get`, `post`, `put`, `delete`, `patch`, `options`, `head`.
+
+## 3. Define the config
+
+Open the generated config file and fill in your validators and handler. Here is a simple health check endpoint:
+
+```ts title="app/api/health/route.get.config.ts" lineNumbers
+import { z } from "zod";
+import {
+  createRequestValidator,
+  HandlerFunc,
+  successResponse,
+} from "route-action-gen/lib";
+
+export const requestValidator = createRequestValidator({});
+
+export const responseValidator = z.object({
+  status: z.string(),
+});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async () => {
+  return successResponse({
+    status: "ok",
+  });
+};
+```
+
+Here is a more complete example with authentication, body validation, and params:
+
+```ts title="app/api/posts/[postId]/route.post.config.ts" lineNumbers
+import { z } from "zod";
+import {
+  AuthFunc,
+  createRequestValidator,
+  successResponse,
+  errorResponse,
+  HandlerFunc,
+} from "route-action-gen/lib";
+import { getUserById, User } from "@/models/user";
+import { getPostById, updatePost } from "@/models/post";
+
+const bodyValidator = z.object({
+  title: z.string().min(1),
+  content: z.string().min(1),
+});
+
+const paramsValidator = z.object({
+  postId: z.string().min(1),
+});
+
+const auth: AuthFunc<User> = async () => {
+  const user = await getUserById("1");
+  if (!user) throw new Error("Unauthorized");
+  return user;
+};
+
+export const requestValidator = createRequestValidator({
+  body: bodyValidator,
+  params: paramsValidator,
+  user: auth,
+});
+
+export const responseValidator = z.object({
+  id: z.string().min(1),
+});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async (data) => {
+  const { body, params, user } = data;
+  const post = await getPostById(params.postId);
+  if (!post) {
+    return errorResponse("Post not found", undefined, 404);
+  }
+  if (post.userId !== user.id) {
+    return errorResponse(
+      "User does not have permission to update this post",
+      undefined,
+      403,
+    );
+  }
+
+  await updatePost(params.postId, {
+    title: body.title,
+    content: body.content,
+  });
+
+  return successResponse({ id: post.id });
+};
+```
+
+## 4. Run the generator
+
+```bash
+npx route-action-gen
+```
+
+The CLI scans the current directory (recursively) for all `route.[method].config.ts` files and generates code in a `.generated/` directory. For App Router, this is inside the config directory. For Pages Router, it is at the project root (see [Generated Files](./generated-files.mdx)).
+
+For the POST example above, the following files are generated:
+
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+<Files>
+  <Folder name="app/api/posts/[postId]" defaultOpen>
+    <File name="route.post.config.ts" />
+    <File name="route.ts" />
+    <Folder name=".generated" defaultOpen>
+      <File name="route.ts" />
+      <File name="client.ts" />
+      <File name="use-route-post.tsx" />
+      <File name="server.function.ts" />
+      <File name="form.action.ts" />
+      <File name="use-server-function.tsx" />
+      <File name="use-form-action.tsx" />
+      <File name="form-components.tsx" />
+      <File name="README.md" />
+    </Folder>
+  </Folder>
+</Files>
+
+The `route.ts` entry point is created automatically with the following content:
+
+```ts title="app/api/posts/[postId]/route.ts"
+export * from "./.generated/route";
+```
+
+## 5. Use the generated code
+
+### Using the React hook
+
+The generated `use-route-post.tsx` hook lets you call the endpoint from a React client component with full type safety:
+
+```tsx title="app/posts/page.tsx" lineNumbers
+"use client";
+
+import { useRoutePost } from "../api/posts/[postId]/.generated/use-route-post";
+
+export default function PostsPage() {
+  const {
+    data: postResult,
+    error: postError,
+    isLoading: postIsLoading,
+    fetchData: fetchPost,
+  } = useRoutePost();
+
+  return (
+    <div>
+      <h1>Posts</h1>
+      {postIsLoading && <div>Updating...</div>}
+      {postError && <div>{postError.message}</div>}
+      <pre>{JSON.stringify(postResult, null, 2)}</pre>
+      <button
+        onClick={() =>
+          fetchPost({
+            body: { title: "Hello, world!", content: "Hello, world!" },
+            params: { postId: "1" },
+          })
+        }
+      >
+        Update Post
+      </button>
+    </div>
+  );
+}
+```
+
+### Using the client class
+
+For non-React apps or scripts, use the generated `RouteClient` class:
+
+```ts title="scripts/update-post.ts" lineNumbers
+import { RouteClient } from "../app/api/posts/[postId]/.generated/client";
+
+const client = new RouteClient({ baseUrl: "http://localhost:3000" });
+
+const result = await client.post({
+  body: { title: "Updated title", content: "Updated content" },
+  params: { postId: "1" },
+});
+```
+
+## 6. Ignore generated files
+
+The `.generated/` directories should be ignored by version control. Add the following to your `.gitignore`:
+
+```
+.generated/
+```
+
+See the [Generated Files](./generated-files.mdx) page for the full list of what gets generated per framework, and the [Config File](./config-file.mdx) reference for all available validators and options.

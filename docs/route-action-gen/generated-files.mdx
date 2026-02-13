@@ -1,0 +1,222 @@
+---
+title: Generated Files
+---
+
+When you run `npx route-action-gen`, the CLI generates files in a `.generated/` directory and creates an entry point file in the config directory if one does not exist.
+
+- **App Router**: generated files are placed in `.generated/` inside the config directory (e.g. `app/api/posts/.generated/`).
+- **Pages Router**: generated files are placed at the project root under `.generated/` in a mirror of the config path (e.g. `.generated/pages/api/users/`). This prevents Next.js from treating them as API routes.
+
+The set of generated files depends on the framework and the HTTP methods defined.
+
+## App Router
+
+For the Next.js App Router, the entry point file is `route.ts`:
+
+```ts title="app/api/posts/[postId]/route.ts"
+export * from "./.generated/route";
+```
+
+### Files generated for all methods
+
+These files are always generated regardless of the HTTP method:
+
+| File                     | Description                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `route.ts`               | The Next.js route handler. Exports named functions (`GET`, `POST`, etc.) for each method defined in the config files.                       |
+| `client.ts`              | A `RouteClient` class with typed methods for each HTTP method. Use this from non-React apps or scripts.                                     |
+| `use-route-[method].tsx` | A React hook for each HTTP method (e.g. `use-route-get.tsx`, `use-route-post.tsx`). Provides `data`, `error`, `isLoading`, and `fetchData`. |
+| `README.md`              | Documentation for the generated files.                                                                                                      |
+
+### Files generated for body methods only
+
+For methods that accept a request body (POST, PUT, PATCH), additional files are generated:
+
+| File                      | Description                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.function.ts`      | A `"use server"` server function that wraps the handler. Can be called directly from server components.                                                     |
+| `form.action.ts`          | A form action wrapper that parses `FormData` and calls the handler. Works with React's `<form action={...}>`.                                               |
+| `use-server-function.tsx` | A React hook that calls the server function using `useTransition`.                                                                                          |
+| `use-form-action.tsx`     | A React hook that calls the form action using `useActionState`.                                                                                             |
+| `form-components.tsx`     | Auto-generated form input and label components based on the Zod schemas for body and param fields. Only generated when the config has body or param fields. |
+
+### Example directory structure
+
+Given `route.get.config.ts` and `route.post.config.ts` in the same directory:
+
+import { File, Folder, Files } from "fumadocs-ui/components/files";
+
+<Files>
+  <Folder name="app/api/posts/[postId]" defaultOpen>
+    <File name="route.get.config.ts" />
+    <File name="route.post.config.ts" />
+    <File name="route.ts" />
+    <Folder name=".generated" defaultOpen>
+      <File name="route.ts" />
+      <File name="client.ts" />
+      <File name="use-route-get.tsx" />
+      <File name="use-route-post.tsx" />
+      <File name="server.function.ts" />
+      <File name="form.action.ts" />
+      <File name="use-server-function.tsx" />
+      <File name="use-form-action.tsx" />
+      <File name="form-components.tsx" />
+      <File name="README.md" />
+    </Folder>
+  </Folder>
+</Files>
+
+## Pages Router
+
+For the Next.js Pages Router, the entry point file is `index.ts`. The import path points to the project-root `.generated/` mirror:
+
+```ts title="pages/api/users/index.ts"
+export { default } from "../../../.generated/pages/api/users/route";
+```
+
+The Pages Router uses a single default export via `createPagesRoute` instead of multiple named exports.
+
+### Files generated for all methods
+
+| File                     | Description                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `route.ts`               | The API route handler. Uses `createPagesRoute` to produce a single default export that handles all configured methods. |
+| `client.ts`              | A `RouteClient` class, same as the App Router version.                                                                 |
+| `use-route-[method].tsx` | A React hook for each HTTP method.                                                                                     |
+| `README.md`              | Documentation for the generated files.                                                                                 |
+
+### Files generated for body methods only
+
+| File                  | Description                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| `form-components.tsx` | Auto-generated form components. Only generated when the config has body or param fields. |
+
+<Callout type="info" title="Good to know">
+  The Pages Router does **not** generate server functions, form actions, or
+  their corresponding hooks (`server.function.ts`, `form.action.ts`,
+  `use-server-function.tsx`, `use-form-action.tsx`). These are App Router
+  features that rely on React Server Components.
+</Callout>
+
+### Config file default export
+
+Next.js treats every `.ts` / `.tsx` file under `pages/api/` as an API route and requires a default export. Since config files (`route.*.config.ts`) are not actual route handlers, you must add a no-op default export:
+
+```ts
+export default function _noop() {}
+```
+
+<Callout type="warn" title="Required">
+  Without this export, the Next.js build will fail with a type error: `Property
+  'default' is missing in type ... but required in type 'ApiRouteConfig'.`
+</Callout>
+
+### Example directory structure
+
+<Files>
+  <Folder name="pages/api/users" defaultOpen>
+    <File name="route.get.config.ts" />
+    <File name="route.post.config.ts" />
+    <File name="index.ts" />
+  </Folder>
+  <Folder name=".generated/pages/api/users" defaultOpen>
+    <File name="route.ts" />
+    <File name="client.ts" />
+    <File name="use-route-get.tsx" />
+    <File name="use-route-post.tsx" />
+    <File name="form-components.tsx" />
+    <File name="README.md" />
+  </Folder>
+</Files>
+
+## Using the generated code
+
+### Route handler
+
+The generated `route.ts` handles request parsing, validation, auth, and error handling. You do not need to edit it. The entry point file re-exports everything from `.generated/route.ts`.
+
+### React hooks
+
+Each `use-route-[method].tsx` exports a hook (e.g. `useRouteGet`, `useRoutePost`) that returns:
+
+| Property    | Type                                        | Description                                                                            |
+| ----------- | ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `data`      | `z.infer<typeof responseValidator> \| null` | The validated response data, or `null` before the first call.                          |
+| `error`     | `Error \| null`                             | Any error that occurred during the request.                                            |
+| `isLoading` | `boolean`                                   | Whether the request is in flight.                                                      |
+| `fetchData` | `(input) => Promise<void>`                  | Triggers the request with typed input (body, params, searchParams, headers as needed). |
+
+```tsx title="app/posts/page.tsx" lineNumbers
+"use client";
+
+import { useRouteGet } from "../api/posts/[postId]/.generated/use-route-get";
+
+export default function PostPage() {
+  const { data, error, isLoading, fetchData } = useRouteGet();
+
+  return (
+    <div>
+      {isLoading && <div>Loading...</div>}
+      {error && <div>{error.message}</div>}
+      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
+      <button onClick={() => fetchData({ params: { postId: "1" } })}>
+        Fetch Post
+      </button>
+    </div>
+  );
+}
+```
+
+### Client class
+
+The `RouteClient` class is framework-agnostic and works in any JavaScript environment:
+
+```ts lineNumbers
+import { RouteClient } from "./app/api/posts/[postId]/.generated/client";
+
+const client = new RouteClient({ baseUrl: "http://localhost:3000" });
+const result = await client.get({ params: { postId: "1" } });
+```
+
+### Server function
+
+The generated `server.function.ts` exports a function marked with `"use server"`. You can call it directly from a server component or use it via the `useServerFunction` hook:
+
+```tsx lineNumbers
+import { useServerFunction } from "../api/posts/[postId]/.generated/use-server-function";
+
+const { data, error, isPending, execute } = useServerFunction();
+```
+
+### Form action
+
+The generated `form.action.ts` works with React's form action pattern. Use it with the `useFormAction` hook:
+
+```tsx lineNumbers
+import { useFormAction } from "../api/posts/[postId]/.generated/use-form-action";
+
+const { state, formAction, isPending } = useFormAction();
+```
+
+Or use the auto-generated form components:
+
+```tsx lineNumbers
+import { PostForm } from "../api/posts/[postId]/.generated/form-components";
+```
+
+## Ignoring generated files
+
+The `.generated/` directories should not be committed to version control. Add the following to your `.gitignore`:
+
+```
+.generated/
+```
+
+All generated files include a header comment indicating they are auto-generated:
+
+```ts
+/** THIS FILE IS AUTOMATICALLY GENERATED BY ROUTE-ACTION-GEN **/
+/* eslint-disable */
+// biome-ignore-all lint: generated file
+// @ts-nocheck
+```

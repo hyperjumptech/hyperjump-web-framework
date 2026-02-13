@@ -1,0 +1,197 @@
+---
+title: CLI Reference
+---
+
+The `route-action-gen` CLI has two commands: the default **generate** command and the **create** command.
+
+## Generate (default)
+
+Scans the current directory recursively for `route.[method].config.ts` files, groups them by directory, and generates code in a `.generated/` subdirectory next to each group.
+
+```bash
+npx route-action-gen [options]
+```
+
+### Options
+
+| Option               | Short | Default | Description                                            |
+| -------------------- | ----- | ------- | ------------------------------------------------------ |
+| `--framework <name>` | `-f`  | `auto`  | Framework target. See [Frameworks](#frameworks) below. |
+| `--help`             | `-h`  |         | Show help message.                                     |
+| `--version`          | `-v`  |         | Show version number.                                   |
+
+### Behavior
+
+1. **Scan**: finds all files matching `**/route.{get,post,put,delete,patch,options,head}.config.ts` from the current working directory.
+2. **Group**: groups config files by directory. Multiple methods in the same directory are handled together.
+3. **Parse**: extracts metadata from each config file (validators, fields, auth).
+4. **Generate**: uses the appropriate framework templates to produce output files.
+5. **Write**: writes generated files into `.generated/`. For App Router, this is inside the config directory. For Pages Router, it is at the project root under `.generated/pages/api/...` to keep them outside the `pages/` tree.
+6. **Entry point**: creates `route.ts` (App Router) or `index.ts` (Pages Router) in the config directory if it does not already exist.
+
+If no config files are found, the CLI exits with an error message.
+
+<Callout type="info" title="Pages Router hint">
+  When Pages Router directories are detected, the CLI prints a reminder to add
+  `export default function _noop() {}` to each config file under `pages/api/`.
+  This is required because Next.js treats every file in `pages/api/` as an API
+  route. See [Generated Files — Config file default
+  export](./generated-files.mdx#config-file-default-export) for details.
+</Callout>
+
+## Create
+
+Scaffolds a new `route.[method].config.ts` file with all required exports.
+
+```bash
+npx route-action-gen create <method> [directory]
+```
+
+### Arguments
+
+| Argument    | Required | Default                 | Description                                                                 |
+| ----------- | -------- | ----------------------- | --------------------------------------------------------------------------- |
+| `method`    | Yes      |                         | HTTP method: `get`, `post`, `put`, `delete`, `patch`, `options`, or `head`. |
+| `directory` | No       | `.` (current directory) | Target directory for the config file. Created if it does not exist.         |
+
+### Options
+
+| Option    | Description                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| `--force` | Overwrite the config file if it already exists. Without this flag, the CLI refuses to overwrite. |
+
+### Examples
+
+```bash
+# Create a GET config in the current directory
+npx route-action-gen create get
+
+# Create a POST config in a specific directory
+npx route-action-gen create post app/api/posts/[postId]
+
+# Overwrite an existing config
+npx route-action-gen create post app/api/posts --force
+```
+
+### Generated template
+
+For body methods (`post`, `put`, `patch`), the template includes a `bodyValidator` placeholder:
+
+```ts title="route.post.config.ts" lineNumbers
+import { z } from "zod";
+import {
+  createRequestValidator,
+  HandlerFunc,
+  successResponse,
+  errorResponse,
+} from "route-action-gen/lib";
+
+const bodyValidator = z.object({});
+
+export const requestValidator = createRequestValidator({
+  body: bodyValidator,
+});
+
+export const responseValidator = z.object({});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async (data) => {
+  const { body } = data;
+  return successResponse({});
+};
+```
+
+For non-body methods (`get`, `delete`, `options`, `head`), the body section is omitted:
+
+```ts title="route.get.config.ts" lineNumbers
+import { z } from "zod";
+import {
+  createRequestValidator,
+  HandlerFunc,
+  successResponse,
+  errorResponse,
+} from "route-action-gen/lib";
+
+export const requestValidator = createRequestValidator({});
+
+export const responseValidator = z.object({});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async (data) => {
+  return successResponse({});
+};
+```
+
+## Frameworks
+
+The `--framework` flag controls which code generator is used.
+
+| Value               | Description                                                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `auto`              | **Default**. Detects per directory: if the config path contains `/pages/`, uses Pages Router; otherwise uses App Router. |
+| `next-app-router`   | Forces Next.js App Router generation for all directories.                                                                |
+| `next-pages-router` | Forces Next.js Pages Router generation for all directories.                                                              |
+
+### Auto detection
+
+With `--framework auto` (the default), the CLI inspects each config file's directory path:
+
+- Path contains `/pages/` (e.g. `pages/api/users/route.get.config.ts`) -> **Pages Router**
+- Otherwise (e.g. `app/api/posts/route.get.config.ts`) -> **App Router**
+
+This means you can have both App Router and Pages Router configs in the same project and the CLI will generate the right code for each.
+
+```bash
+# Uses auto detection (default)
+npx route-action-gen
+
+# Force App Router for everything
+npx route-action-gen --framework next-app-router
+
+# Force Pages Router for everything
+npx route-action-gen --framework next-pages-router
+```
+
+## Config file naming
+
+Config files must follow this naming convention:
+
+```
+route.[method].config.ts
+```
+
+Where `[method]` is one of: `get`, `post`, `put`, `delete`, `patch`, `options`, `head`.
+
+Multiple config files can live in the same directory. For example, a directory with both `route.get.config.ts` and `route.post.config.ts` generates a single `route.ts` that exports both `GET` and `POST` handlers (App Router) or a single default handler that dispatches by method (Pages Router).
+
+## Lib exports
+
+The `route-action-gen/lib` module exports the following:
+
+| Export                   | Description                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| `createRequestValidator` | Creates the request validator object from body, params, headers, searchParams, and user schemas. |
+| `HandlerFunc`            | Generic type for the handler function.                                                           |
+| `AuthFunc`               | Generic type for the auth function.                                                              |
+| `successResponse`        | Helper to create a success response (`{ status: true, statusCode: 200, data }`).                 |
+| `errorResponse`          | Helper to create an error response (`{ status: false, statusCode, message }`).                   |
+| `SuccessResponse`        | Type for success responses.                                                                      |
+| `ErrorResponse`          | Type for error responses.                                                                        |
+| `HandlerResponse`        | Union type of `SuccessResponse` and `ErrorResponse`.                                             |
+| `ValidationError`        | Error type for validation failures.                                                              |
+| `mapZodError`            | Utility to format Zod errors.                                                                    |
+
+Additional sub-path exports:
+
+| Path                              | Exports                                                                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `route-action-gen/lib/next`       | `createRoute`, `createFormAction`, `createServerFunction`, `processRequest`, `processFormAction`, `processServerFunction` |
+| `route-action-gen/lib/next/pages` | `createPagesRoute`                                                                                                        |
+| `route-action-gen/lib/react`      | `createFormWithAction`, `createInput`, `createLabel`                                                                      |
+| `route-action-gen/lib/node`       | `parseFormData`                                                                                                           |

@@ -404,7 +404,7 @@ const Component = () => {
 
 ## Generating code
 
-In Hyperjump, we don't write the server function and server action code manually. Instead, we write the `route.post.config.ts` file to configure the server action. Then we use the `route-next-gen` command to generate the server function and server action code.
+In Hyperjump, we don't write the server function and server action code manually. Instead, we write the `route.post.config.ts` file to configure the server action. Then we use the `route-action-gen` command to generate the server function and server action code.
 
 For example, the following is the `/api/login/route.post.config.ts` file to handle the login form submission:
 
@@ -447,7 +447,7 @@ export const handler: HandlerFunc<
 };
 ```
 
-Upon running the `route-next-gen --server-function` command, it will generate two server function related files:
+Upon running the `route-action-gen --server-function` command, it will generate two server function related files:
 
 - `app/api/login/server-function.ts`
 - `app/api/login/use-server-function.ts`
@@ -475,7 +475,7 @@ import {
   getBodyFromRequest,
   errorResponse,
   successResponse,
-} from "@hyperjumptech/route-next-gen/lib";
+} from "@hyperjumptech/route-action-gen/lib";
 import { z } from "zod";
 
 export const serverFunction = async (
@@ -587,12 +587,12 @@ const Component = () => {
 
 ## Security
 
-Server function and server action are basically a public end point that can be called from the client component. As such, you should always authorize and validate the data that is sent from the client to prevent unauthorized access and data manipulation. When using `route-next-gen`, you have to **always** include the user function in the request validator to authorize the request.
+Server function and server action are basically a public end point that can be called from the client component. As such, you should always authorize and validate the data that is sent from the client to prevent unauthorized access and data manipulation. When using `route-action-gen`, you have to **always** include the user function in the request validator to authorize the request.
 
 ## Ground Rules
 
-|     | Action                                                                                                                |
-| --- | --------------------------------------------------------------------------------------------------------------------- |
-| ✅  | Never write the server function and/or server action code manually. Always use `route-next-gen` to generate the code. |
-| ✅  | Use the generated custom hooks to call the end point from a client component in the Next.js app.                      |
-| ✅  | Understand when not to use server function and use route handler instead.                                             |
+|     | Action                                                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------- |
+| ✅  | Never write the server function and/or server action code manually. Always use `route-action-gen` to generate the code. |
+| ✅  | Use the generated custom hooks to call the end point from a client component in the Next.js app.                        |
+| ✅  | Understand when not to use server function and use route handler instead.                                               |

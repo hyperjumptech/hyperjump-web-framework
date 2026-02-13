@@ -1,0 +1,12 @@
+{
+  "title": "Route Action Gen",
+  "icon": "MyIcon",
+  "pages": [
+    "index",
+    "quick-start",
+    "config-file",
+    "generated-files",
+    "cli-reference"
+  ],
+  "defaultOpen": true
+}

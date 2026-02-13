@@ -1,0 +1,297 @@
+---
+title: Config File
+---
+
+The config file is where you define the shape of a route endpoint. Each file follows the naming convention `route.[method].config.ts` and must export three things:
+
+| Export              | Type                                 | Description                                                                     |
+| ------------------- | ------------------------------------ | ------------------------------------------------------------------------------- |
+| `requestValidator`  | `ReturnType<createRequestValidator>` | Defines what the endpoint accepts (body, params, headers, search params, auth). |
+| `responseValidator` | `z.ZodType`                          | Defines the shape of a successful response.                                     |
+| `handler`           | `HandlerFunc`                        | The async function that runs when the request passes validation.                |
+
+All helpers are imported from `route-action-gen/lib`:
+
+```ts
+import {
+  createRequestValidator,
+  HandlerFunc,
+  AuthFunc,
+  successResponse,
+  errorResponse,
+} from "route-action-gen/lib";
+```
+
+### Pages Router: required default export
+
+If the config file lives inside `pages/api/`, Next.js treats it as an API route and requires a default export. Add a no-op default export at the end of the file:
+
+```ts
+export default function _noop() {}
+```
+
+This is only needed for config files under `pages/api/`. App Router config files do not need this.
+
+## Request validator
+
+The request validator is created by calling `createRequestValidator()` with an object that can contain any combination of the following optional fields:
+
+| Field          | Type          | Description                                                                 |
+| -------------- | ------------- | --------------------------------------------------------------------------- |
+| `body`         | `z.ZodType`   | Validates the request body. Only relevant for POST, PUT, and PATCH methods. |
+| `params`       | `z.ZodType`   | Validates dynamic route segments (e.g. `[postId]`).                         |
+| `headers`      | `z.ZodType`   | Validates request headers.                                                  |
+| `searchParams` | `z.ZodType`   | Validates URL query parameters.                                             |
+| `user`         | `AuthFunc<T>` | An async auth function that returns a user object or throws.                |
+
+If a validator is not provided, that part of the request is not checked and the corresponding property is not present in the handler's `data` argument.
+
+### Body validator
+
+A Zod schema that defines the expected body shape. The generated route handler parses the body regardless of content type (`application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`) and validates it against this schema.
+
+```ts title="app/api/posts/route.post.config.ts" lineNumbers
+const bodyValidator = z.object({
+  title: z.string().min(1),
+  content: z.string().min(1),
+});
+
+export const requestValidator = createRequestValidator({
+  body: bodyValidator,
+});
+```
+
+If validation fails, the generated handler returns a `400 Bad Request` response automatically.
+
+<Callout type="info" title="Good to know">
+  If the config is for a GET or DELETE method, the body validator is ignored
+  even if provided. If the config does not define a body validator, the handler
+  receives no `body` property.
+</Callout>
+
+### Params validator
+
+A Zod schema that defines the expected dynamic route segments. Use this when the route has dynamic segments like `[postId]`.
+
+```ts title="app/api/tags/[tagId]/authors/[authorId]/route.get.config.ts" lineNumbers
+const paramsValidator = z.object({
+  tagId: z.string().min(1),
+  authorId: z.string().min(1),
+});
+
+export const requestValidator = createRequestValidator({
+  params: paramsValidator,
+});
+```
+
+You can use `z.coerce` to automatically convert param values:
+
+```ts
+const paramsValidator = z.object({
+  views: z.coerce.number().min(10),
+});
+```
+
+A request to `/api/tags/123/authors/456` passes validation; a request to `/api/tags//authors/` fails with `400 Bad Request`.
+
+### Search params validator
+
+A Zod schema that defines the expected URL query parameters.
+
+```ts title="app/api/posts/route.get.config.ts" lineNumbers
+const searchParamsValidator = z.object({
+  query: z.string().min(1),
+  filter: z.array(z.string()).optional(),
+});
+
+export const requestValidator = createRequestValidator({
+  searchParams: searchParamsValidator,
+});
+```
+
+The generated code converts search params into an object before validation. A single value is also treated as an array of one, so `?filter=active` passes validation for `z.array(z.string())`.
+
+### Headers validator
+
+A Zod schema that defines the expected headers. All header names are lowercased before validation, so keys in the schema must be lowercase.
+
+```ts title="app/api/posts/route.get.config.ts" lineNumbers
+const headersValidator = z.object({
+  authorization: z
+    .custom<string>()
+    .refine((value) => value === `Bearer ${process.env.API_KEY}`, {
+      message: "Invalid API key",
+    }),
+});
+
+export const requestValidator = createRequestValidator({
+  headers: headersValidator,
+});
+```
+
+### Auth function (user)
+
+An async function of type `AuthFunc<T>` that checks whether the request is authenticated. The rules are:
+
+- **Authenticated**: return the user object. It will be available as `data.user` in the handler.
+- **Unauthenticated but allowed**: return `null`. The endpoint accepts both authenticated and unauthenticated requests.
+- **Reject**: throw an error. The generated handler catches the error and returns a `401 Unauthorized` response.
+
+```ts title="app/api/posts/route.get.config.ts" lineNumbers
+import type { AuthFunc } from "route-action-gen/lib";
+import { getUser, User } from "@/models/user";
+
+const auth: AuthFunc<User> = async () => {
+  const user = await getUser();
+  if (!user) throw new Error("Unauthorized");
+  return user;
+};
+
+export const requestValidator = createRequestValidator({
+  user: auth,
+});
+```
+
+## Response validator
+
+A Zod schema that defines the shape of a successful response. This is used to:
+
+1. Strongly type the return value of the `handler` function at compile time.
+2. Validate the response in the generated client code at runtime.
+
+```ts title="app/api/posts/[postId]/route.get.config.ts" lineNumbers
+export const responseValidator = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  content: z.string().min(1),
+});
+```
+
+<Callout type="info" title="Good to know">
+  The generated `route.ts` file does **not** validate the handler's return value
+  against the response validator at runtime. The response validator is enforced
+  at compile time through TypeScript generics and at runtime in the generated
+  client code.
+</Callout>
+
+## Handler function
+
+The handler is an async function that runs after all validation passes. It receives a single `data` argument with the validated values. The properties present in `data` depend on which validators you defined:
+
+| Property            | Present when                        |
+| ------------------- | ----------------------------------- |
+| `data.body`         | `body` validator is defined         |
+| `data.params`       | `params` validator is defined       |
+| `data.searchParams` | `searchParams` validator is defined |
+| `data.headers`      | `headers` validator is defined      |
+| `data.user`         | `user` auth function is defined     |
+
+The handler must return either a `successResponse` or an `errorResponse`:
+
+```ts title="app/api/posts/[postId]/route.post.config.ts" lineNumbers
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async (data) => {
+  const { body, params, user } = data;
+  const post = await getPostById(params.postId);
+  if (!post) {
+    return errorResponse("Post not found", undefined, 404);
+  }
+  if (post.userId !== user.id) {
+    return errorResponse("Forbidden", undefined, 403);
+  }
+
+  await updatePost(params.postId, {
+    title: body.title,
+    content: body.content,
+  });
+
+  return successResponse({ id: post.id });
+};
+```
+
+### successResponse
+
+Returns a success response. The data must match the `responseValidator` schema.
+
+```ts
+successResponse(data);
+// Returns: { status: true, statusCode: 200, data }
+```
+
+### errorResponse
+
+Returns an error response with an optional status code (defaults to 500).
+
+```ts
+errorResponse(message, object?, statusCode?)
+// Returns: { status: false, statusCode, message, object }
+```
+
+Any uncaught exceptions in the handler are caught by the generated route handler and returned as a `500 Internal Server Error`.
+
+## Complete example
+
+Here is a full config file for a POST endpoint that updates a post:
+
+```ts title="app/api/posts/[postId]/route.post.config.ts" lineNumbers
+import { z } from "zod";
+import {
+  AuthFunc,
+  createRequestValidator,
+  successResponse,
+  errorResponse,
+  HandlerFunc,
+} from "route-action-gen/lib";
+import { getUserById, User } from "@/models/user";
+import { getPostById, updatePost } from "@/models/post";
+
+const bodyValidator = z.object({
+  title: z.string().min(1),
+  content: z.string().min(1),
+});
+
+const paramsValidator = z.object({
+  postId: z.string().min(1),
+});
+
+const auth: AuthFunc<User> = async () => {
+  const user = await getUserById("1");
+  if (!user) throw new Error("Unauthorized");
+  return user;
+};
+
+export const requestValidator = createRequestValidator({
+  body: bodyValidator,
+  params: paramsValidator,
+  user: auth,
+});
+
+export const responseValidator = z.object({
+  id: z.string().min(1),
+});
+
+export const handler: HandlerFunc<
+  typeof requestValidator,
+  typeof responseValidator,
+  undefined
+> = async (data) => {
+  const { body, params, user } = data;
+  const post = await getPostById(params.postId);
+  if (!post) {
+    return errorResponse("Post not found", undefined, 404);
+  }
+  if (post.userId !== user.id) {
+    return errorResponse("Forbidden", undefined, 403);
+  }
+
+  await updatePost(params.postId, {
+    title: body.title,
+    content: body.content,
+  });
+
+  return successResponse({ id: post.id });
+};
+```
