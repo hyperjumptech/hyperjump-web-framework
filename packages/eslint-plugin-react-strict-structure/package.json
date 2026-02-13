@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "node --test src/rules/no-inline-jsx-functions.test.js"
+    "test": "node --test ./rules/no-inline-jsx-functions.test.js"
   },
   "keywords": [
     "eslint",

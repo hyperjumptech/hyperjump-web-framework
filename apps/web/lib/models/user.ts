@@ -31,3 +31,7 @@ export const createUser = async (data: { name: string }) => {
   fakeData.push(user);
   return user;
 };
+
+export const getTotalUsers = async () => {
+  return fakeData.length;
+};
