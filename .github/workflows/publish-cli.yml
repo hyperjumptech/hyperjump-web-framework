@@ -1,0 +1,36 @@
+name: Publish CLI to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set version from release tag
+        run: npm pkg set "version=${GITHUB_REF_NAME#v}"
+        working-directory: packages/route-action-gen
+
+      - name: Build
+        run: pnpm build --filter=route-action-gen
+
+      - name: Publish to npm
+        run: npm publish
+        working-directory: packages/route-action-gen
