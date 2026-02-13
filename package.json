@@ -28,6 +28,8 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@tailwindcss/oxide",
+      "core-js-pure",
       "esbuild",
       "sharp"
     ]
