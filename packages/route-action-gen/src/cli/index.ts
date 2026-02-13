@@ -366,11 +366,19 @@ export function main() {
   }
 }
 
-// Only run main() when this file is executed directly (not when imported)
-const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith("/cli/index.js") ||
-    process.argv[1].endsWith("/cli/index.ts"));
+// Only run main() when this file is executed directly (not when imported).
+// We resolve symlinks so that `npx route-action-gen` (which uses a bin
+// symlink) correctly matches the real path of this module.
+const isDirectRun = (() => {
+  try {
+    if (!process.argv[1]) return false;
+    const scriptPath = fs.realpathSync(process.argv[1]);
+    const modulePath = path.resolve(new URL(import.meta.url).pathname);
+    return scriptPath === modulePath;
+  } catch {
+    return false;
+  }
+})();
 
 if (isDirectRun) {
   main();
