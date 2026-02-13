@@ -14,6 +14,14 @@ pnpm install
 pnpm docs:dev
 ```
 
+## Running the database
+
+From the root of the monorepo, run the following command to start the database locally:
+
+```bash
+docker-compose up
+```
+
 ## Running the demo web app
 
 Prepare the `.env.local` files by running the following command:
