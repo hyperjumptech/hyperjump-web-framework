@@ -1,7 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  "globalEnv": ["IS_ODD", "IS_EVEN"],
   "tasks": {
     "generate": {
       "cache": false
