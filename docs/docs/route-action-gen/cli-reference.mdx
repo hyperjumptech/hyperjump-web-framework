@@ -26,10 +26,18 @@ npx route-action-gen [options]
 2. **Group**: groups config files by directory. Multiple methods in the same directory are handled together.
 3. **Parse**: extracts metadata from each config file (validators, fields, auth).
 4. **Generate**: uses the appropriate framework templates to produce output files.
-5. **Write**: writes generated files into `.generated/` next to the config files.
+5. **Write**: writes generated files into `.generated/`. For App Router, this is inside the config directory. For Pages Router, it is at the project root under `.generated/pages/api/...` to keep them outside the `pages/` tree.
 6. **Entry point**: creates `route.ts` (App Router) or `index.ts` (Pages Router) in the config directory if it does not already exist.
 
 If no config files are found, the CLI exits with an error message.
+
+<Callout type="info" title="Pages Router hint">
+  When Pages Router directories are detected, the CLI prints a reminder to add
+  `export default function _noop() {}` to each config file under `pages/api/`.
+  This is required because Next.js treats every file in `pages/api/` as an API
+  route. See [Generated Files — Config file default
+  export](./generated-files.mdx#config-file-default-export) for details.
+</Callout>
 
 ## Create
 

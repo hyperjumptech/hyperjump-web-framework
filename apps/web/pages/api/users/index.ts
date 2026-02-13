@@ -1,1 +1,1 @@
-export { default } from "./.generated/route";
+export { default } from "../../../.generated/pages/api/users/route";

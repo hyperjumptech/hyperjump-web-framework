@@ -19,7 +19,7 @@ export interface RouteEntry {
   methodUpper: string;
   /** PascalCase method, e.g. "Get" */
   methodPascal: string;
-  /** Config file name without .ts extension, e.g. "route.get.config" */
+  /** Relative import path to the config file (without extension), e.g. "../route.get.config" */
   configFileBase: string;
   /** URL route path, e.g. "/api/posts/[postId]" */
   routePath: string;
@@ -161,7 +161,7 @@ export function routeTemplate(entries: RouteEntry[]): string {
         `  handler as ${e.method}Handler,\n` +
         `  requestValidator as ${e.method}RequestValidator,\n` +
         `  responseValidator as ${e.method}ResponseValidator,\n` +
-        `} from "../${e.configFileBase}";`,
+        `} from "${e.configFileBase}";`,
     ),
   ];
 

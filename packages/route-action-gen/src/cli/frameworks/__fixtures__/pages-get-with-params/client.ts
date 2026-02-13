@@ -5,7 +5,7 @@
 import {
   requestValidator as getRequestValidator,
   responseValidator as getResponseValidator,
-} from "../route.get.config";
+} from "../../../../../pages/api/posts/[postId]/route.get.config";
 import { z } from "zod";
 
 /**

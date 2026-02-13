@@ -19,10 +19,16 @@ export interface PagesRouteTemplateInput {
   entries: PagesRouteEntry[];
   /** Dynamic segment names from the route path, e.g. ["postId"] */
   paramNames: string[];
+  /**
+   * Relative path prefix from the generated directory to the config directory.
+   * e.g. `"../"` when generated files are in `.generated/` inside the config dir,
+   * or `"../../../../pages/api/users/"` when generated files are at project root.
+   */
+  configImportPrefix: string;
 }
 
 export function pagesRouteTemplate(input: PagesRouteTemplateInput): string {
-  const { entries, paramNames } = input;
+  const { entries, paramNames, configImportPrefix } = input;
 
   // Build imports
   const configImports = entries.map(
@@ -31,7 +37,7 @@ export function pagesRouteTemplate(input: PagesRouteTemplateInput): string {
       `  handler as ${e.method}Handler,\n` +
       `  requestValidator as ${e.method}RequestValidator,\n` +
       `  responseValidator as ${e.method}ResponseValidator,\n` +
-      `} from "../${e.configFileBase}";`,
+      `} from "${configImportPrefix}${e.configFileBase}";`,
   );
 
   // Build method map entries

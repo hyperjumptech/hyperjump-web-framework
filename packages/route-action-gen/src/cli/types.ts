@@ -55,6 +55,14 @@ export interface GenerationContext {
   routePath: string;
   /** Parsed config metadata, one per HTTP method */
   configs: ParsedConfig[];
+  /**
+   * Relative path prefix from the generated directory to the config directory,
+   * used for import statements in generated files.
+   *
+   * - App Router: `"../"` (generated files are in `.generated/` inside the config dir)
+   * - Pages Router: e.g. `"../../../../pages/api/users/"` (generated files are at project root)
+   */
+  configImportPrefix: string;
 }
 
 /** A single generated file */
@@ -83,18 +91,31 @@ export interface FrameworkGenerator {
    */
   resolveRoutePath(directory: string): string;
   /**
+   * Resolve the absolute path of the generated output directory.
+   *
+   * - App Router: `path.join(configDir, ".generated")` (inside the config dir)
+   * - Pages Router: `path.join(cwd, ".generated", relative(cwd, configDir))` (at project root)
+   *
+   * @param configDir - Absolute path to the directory containing config files
+   * @param cwd - Absolute path to the project working directory
+   */
+  resolveGeneratedDir(configDir: string, cwd: string): string;
+  /**
    * Generate files for a single directory containing route configs.
-   * @returns Array of files to write into the .generated/ directory
+   * @returns Array of files to write into the generated directory
    */
   generate(context: GenerationContext): GeneratedFile[];
   /**
-   * Get the entry point file that re-exports from .generated/.
-   * This file lives in the config directory (not inside .generated/).
+   * Get the entry point file that re-exports from the generated directory.
+   * This file lives in the config directory (not inside the generated dir).
+   *
+   * @param generatedDirRelPath - Relative path from the config directory to the generated directory
+   *                              (e.g. "./.generated" for App Router, "../../../.generated/pages/api/users" for Pages Router)
    *
    * - App Router: route.ts with `export * from "./.generated/route";`
-   * - Pages Router: index.ts with `export { default } from "./.generated/route";`
+   * - Pages Router: index.ts with `export { default } from "{generatedDirRelPath}/route";`
    */
-  getEntryPointFile(): EntryPointFile;
+  getEntryPointFile(generatedDirRelPath: string): EntryPointFile;
 }
 
 /** Dependencies that can be injected for testing */

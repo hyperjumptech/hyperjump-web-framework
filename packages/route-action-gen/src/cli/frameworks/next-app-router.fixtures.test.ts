@@ -148,6 +148,7 @@ function parseAndGenerate(
     directory: `/app${routePath}`,
     routePath,
     configs: parsedConfigs,
+    configImportPrefix: "../",
   });
 }
 

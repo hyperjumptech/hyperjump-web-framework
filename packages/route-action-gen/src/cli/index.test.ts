@@ -581,9 +581,11 @@ describe("main", () => {
     main();
 
     // Assert
+    // Pages Router generates files to .generated/ at the project root,
+    // so the entry point import path is relative from pages/api/users/ to .generated/pages/api/users/
     expect(fs.writeFileSync).toHaveBeenCalledWith(
       "/test-project/pages/api/users/index.ts",
-      'export { default } from "./.generated/route";\n',
+      'export { default } from "../../../.generated/pages/api/users/route";\n',
       "utf-8",
     );
   });

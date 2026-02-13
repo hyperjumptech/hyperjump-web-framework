@@ -185,9 +185,11 @@ export function generate(
   success: boolean;
   generated?: {
     directory: string;
+    generatedDir: string;
     files: string[];
     entryPointFile?: string;
     entryPointCreated: boolean;
+    framework: string;
   }[];
   error?: string;
 } {
@@ -217,9 +219,11 @@ export function generate(
 
   const results: {
     directory: string;
+    generatedDir: string;
     files: string[];
     entryPointFile?: string;
     entryPointCreated: boolean;
+    framework: string;
   }[] = [];
 
   for (const group of groups) {
@@ -237,17 +241,25 @@ export function generate(
     // Compute the route path using the framework generator
     const routePath = generator.resolveRoutePath(group.directory);
 
+    // Resolve the generated output directory (may differ from config dir)
+    const generatedDir = generator.resolveGeneratedDir(group.directory, cwd);
+
+    // Compute relative import prefix from generated dir to config dir
+    // e.g. "../" for App Router, "../../../../pages/api/users/" for Pages Router
+    const configImportPrefix =
+      path.relative(generatedDir, group.directory) + "/";
+
     const context: GenerationContext = {
       directory: group.directory,
       routePath,
       configs: parsedConfigs,
+      configImportPrefix,
     };
 
     // Generate files
     const generatedFiles = generator.generate(context);
 
-    // Write files to .generated/ directory
-    const generatedDir = path.join(group.directory, ".generated");
+    // Write files to the generated directory
     deps.mkdirSync(generatedDir, { recursive: true });
 
     const writtenFiles: string[] = [];
@@ -258,7 +270,12 @@ export function generate(
     }
 
     // Create entry point file if it doesn't exist
-    const entryPoint = generator.getEntryPointFile();
+    const generatedDirRelPath = path.relative(group.directory, generatedDir);
+    // Ensure the path starts with "./" or "../" for a valid import specifier
+    const importPath = generatedDirRelPath.startsWith(".")
+      ? generatedDirRelPath
+      : `./${generatedDirRelPath}`;
+    const entryPoint = generator.getEntryPointFile(importPath);
     const entryPointPath = path.join(group.directory, entryPoint.fileName);
     let entryPointCreated = false;
 
@@ -269,9 +286,11 @@ export function generate(
 
     results.push({
       directory: group.directory,
+      generatedDir,
       files: writtenFiles,
       entryPointFile: entryPoint.fileName,
       entryPointCreated,
+      framework: generator.name,
     });
   }
 
@@ -344,7 +363,7 @@ export function main() {
 
   if (result.generated) {
     for (const group of result.generated) {
-      console.log(`Generated in ${group.directory}/.generated/:`);
+      console.log(`Generated in ${group.generatedDir}/:`);
       for (const file of group.files) {
         console.log(`  - ${file}`);
       }
@@ -363,6 +382,20 @@ export function main() {
     console.log(
       `Done! Generated ${totalFiles} file(s) in ${result.generated.length} directory(ies).`,
     );
+
+    // Show Pages Router hint if any directories use the Pages Router
+    const hasPagesRouter = result.generated.some(
+      (g) => g.framework === "next-pages-router",
+    );
+    if (hasPagesRouter) {
+      console.log(
+        `\nNote: Next.js treats every file under pages/api/ as an API route.\n` +
+          `Config files (route.*.config.ts) in pages/api/ need a no-op default export\n` +
+          `to satisfy the ApiRouteConfig type constraint:\n\n` +
+          `  export default function _noop() {}\n\n` +
+          `Add this line to each route.*.config.ts file inside pages/api/.`,
+      );
+    }
   }
 }
 

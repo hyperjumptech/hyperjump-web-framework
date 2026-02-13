@@ -4,7 +4,10 @@
 // @ts-nocheck
 "use client";
 
-import { requestValidator, responseValidator } from "../route.post.config";
+import {
+  requestValidator,
+  responseValidator,
+} from "../../../../../pages/api/posts/[postId]/route.post.config";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 

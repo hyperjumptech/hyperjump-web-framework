@@ -16,10 +16,11 @@ describe("route.get.config handler", () => {
     vi.mocked(getTotalUsers).mockResolvedValue(5);
 
     // Act
-    const result = await handler({});
+    const result = await handler({} as Parameters<typeof handler>[0]);
 
     // Assert
     expect(result.status).toBe(true);
+    if (!result.status) throw new Error("Expected success response");
     expect(result.data).toEqual({ totalUsers: 5 });
   });
 
@@ -29,10 +30,11 @@ describe("route.get.config handler", () => {
     vi.mocked(getTotalUsers).mockResolvedValue(0);
 
     // Act
-    const result = await handler({});
+    const result = await handler({} as Parameters<typeof handler>[0]);
 
     // Assert
     expect(result.status).toBe(true);
+    if (!result.status) throw new Error("Expected success response");
     expect(result.data).toEqual({ totalUsers: 0 });
   });
 });

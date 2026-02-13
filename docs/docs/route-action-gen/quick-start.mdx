@@ -129,7 +129,7 @@ export const handler: HandlerFunc<
 npx route-action-gen
 ```
 
-The CLI scans the current directory (recursively) for all `route.[method].config.ts` files and generates code in a `.generated/` subdirectory next to each config file.
+The CLI scans the current directory (recursively) for all `route.[method].config.ts` files and generates code in a `.generated/` directory. For App Router, this is inside the config directory. For Pages Router, it is at the project root (see [Generated Files](./generated-files.mdx)).
 
 For the POST example above, the following files are generated:
 

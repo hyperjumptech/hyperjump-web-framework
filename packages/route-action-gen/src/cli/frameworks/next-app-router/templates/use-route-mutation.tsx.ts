@@ -8,7 +8,7 @@
 import { GENERATED_HEADER } from "../../../constants.js";
 
 export interface UseRouteMutationTemplateData {
-  /** Config file name without .ts extension, e.g. "route.post.config" */
+  /** Relative import path to the config file (without extension), e.g. "../route.post.config" */
   configFileBase: string;
   /** Config file name, e.g. "route.post.config.ts" */
   configFileName: string;
@@ -34,7 +34,7 @@ export function useRouteMutationTemplate(
   return `${GENERATED_HEADER}
 "use client";
 
-import { requestValidator, responseValidator } from "../${d.configFileBase}";
+import { requestValidator, responseValidator } from "${d.configFileBase}";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 

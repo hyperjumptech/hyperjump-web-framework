@@ -22,6 +22,16 @@ import {
 } from "route-action-gen/lib";
 ```
 
+### Pages Router: required default export
+
+If the config file lives inside `pages/api/`, Next.js treats it as an API route and requires a default export. Add a no-op default export at the end of the file:
+
+```ts
+export default function _noop() {}
+```
+
+This is only needed for config files under `pages/api/`. App Router config files do not need this.
+
 ## Request validator
 
 The request validator is created by calling `createRequestValidator()` with an object that can contain any combination of the following optional fields:
