@@ -4,7 +4,7 @@
 // @ts-nocheck
 "use client";
 
-import {
+import type {
   requestValidator,
   responseValidator,
 } from "../../../../../pages/api/posts/[postId]/route.get.config";
@@ -78,9 +78,7 @@ export const useRouteGet = (input: {
 
         if (!isCleanedUp && lastFetchedAt === thisLastFetchedAt) {
           const responseData = await response.json();
-          const validatedData =
-            await responseValidator.parseAsync(responseData);
-          setData(validatedData);
+          setData(responseData);
           setLoading(false);
           setError(null);
         }

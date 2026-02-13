@@ -29,7 +29,7 @@ export function useRouteGetTemplate(d: UseRouteGetTemplateData): string {
   return `${GENERATED_HEADER}
 "use client";
 
-import { requestValidator, responseValidator } from "${d.configFileBase}";
+import type { requestValidator, responseValidator } from "${d.configFileBase}";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -98,8 +98,7 @@ ${d.fetchUrlCode}
 
         if (!isCleanedUp && lastFetchedAt === thisLastFetchedAt) {
           const responseData = await response.json();
-          const validatedData = await responseValidator.parseAsync(responseData);
-          setData(validatedData);
+          setData(responseData);
           setLoading(false);
           setError(null);
         }

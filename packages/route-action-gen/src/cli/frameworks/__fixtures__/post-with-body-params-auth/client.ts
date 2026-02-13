@@ -2,7 +2,7 @@
 /* eslint-disable */
 // biome-ignore-all lint: generated file
 // @ts-nocheck
-import {
+import type {
   requestValidator as postRequestValidator,
   responseValidator as postResponseValidator,
 } from "../route.post.config";
@@ -36,8 +36,6 @@ export class RouteClient {
     }
 
     const responseData = await response.json();
-    const validatedData = await postResponseValidator.parseAsync(responseData);
-
-    return validatedData;
+    return responseData as z.infer<typeof postResponseValidator>;
   }
 }

@@ -7,6 +7,7 @@ export const env = createEnv({
   server: {
     DB_POOLING_URL: z.string().min(1),
     DB_URL_NON_POOLING: z.string().min(1),
+    DB_CERT_BASE_64: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_DEFAULT_LANGUAGE: z.string().min(1),

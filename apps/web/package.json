@@ -18,6 +18,10 @@
   "dependencies": {
     "@workspace/env": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
+    "pg": "catalog:",
+    "@workspace/database": "workspace:*",
     "route-action-gen": "workspace:*",
     "lucide-react": "^0.475.0",
     "next": "16.0.7",

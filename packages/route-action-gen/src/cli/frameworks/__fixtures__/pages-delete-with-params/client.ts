@@ -2,7 +2,7 @@
 /* eslint-disable */
 // biome-ignore-all lint: generated file
 // @ts-nocheck
-import {
+import type {
   requestValidator as deleteRequestValidator,
   responseValidator as deleteResponseValidator,
 } from "../../../../../pages/api/posts/[postId]/route.delete.config";
@@ -30,9 +30,6 @@ export class RouteClient {
     }
 
     const responseData = await response.json();
-    const validatedData =
-      await deleteResponseValidator.parseAsync(responseData);
-
-    return validatedData;
+    return responseData as z.infer<typeof deleteResponseValidator>;
   }
 }

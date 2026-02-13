@@ -34,7 +34,7 @@ export function useRouteMutationTemplate(
   return `${GENERATED_HEADER}
 "use client";
 
-import { requestValidator, responseValidator } from "${d.configFileBase}";
+import type { requestValidator, responseValidator } from "${d.configFileBase}";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
 
@@ -83,19 +83,11 @@ ${d.fetchOpts}
 
         if (!isCleanedUp?.()) {
           const responseData = await response.json();
-
-          const validatedData =
-            await responseValidator.parseAsync(responseData);
-
-          setData(validatedData);
+          setData(responseData);
         }
       } catch (error) {
         if (!isCleanedUp?.()) {
-          if (error instanceof z.ZodError) {
-            setError(new Error(error.message));
-          } else {
-            setError(error as Error);
-          }
+          setError(error as Error);
         }
       } finally {
         setIsLoading(false);
