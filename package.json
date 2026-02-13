@@ -28,9 +28,11 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@prisma/engines",
       "@tailwindcss/oxide",
       "core-js-pure",
       "esbuild",
+      "prisma",
       "sharp"
     ]
   }

@@ -53,8 +53,7 @@ export function clientMethodTemplate(d: ClientMethodData): string {
     `    }`,
     ``,
     `    const responseData = await response.json();`,
-    `    const validatedData = await ${d.prefix}ResponseValidator.parseAsync(responseData);`,
-    d.returnBlock,
+    `    return responseData as z.infer<typeof ${d.prefix}ResponseValidator>;`,
     `  }`,
     ``,
   );

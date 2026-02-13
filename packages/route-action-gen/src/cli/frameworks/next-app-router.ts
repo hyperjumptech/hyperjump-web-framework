@@ -163,7 +163,7 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
     for (const config of configs) {
       const prefix = config.method;
       imports.push(
-        `import {\n` +
+        `import type {\n` +
           `  requestValidator as ${prefix}RequestValidator,\n` +
           `  responseValidator as ${prefix}ResponseValidator,\n` +
           `} from "${configImportPrefix}${config.configFileName.replace(".ts", "")}";`,

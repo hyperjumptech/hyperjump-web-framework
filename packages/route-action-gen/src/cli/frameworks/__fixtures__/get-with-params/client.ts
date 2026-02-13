@@ -2,7 +2,7 @@
 /* eslint-disable */
 // biome-ignore-all lint: generated file
 // @ts-nocheck
-import {
+import type {
   requestValidator as getRequestValidator,
   responseValidator as getResponseValidator,
 } from "../route.get.config";
@@ -30,7 +30,6 @@ export class RouteClient {
     }
 
     const responseData = await response.json();
-    const validatedData = await getResponseValidator.parseAsync(responseData);
-    return validatedData;
+    return responseData as z.infer<typeof getResponseValidator>;
   }
 }

@@ -3,18 +3,21 @@
   "ui": "tui",
   "tasks": {
     "generate": {
+      "dependsOn": ["^build"],
       "cache": false
     },
     "build": {
-      "dependsOn": ["^build", "generate"],
+      "dependsOn": ["^db:migrate:deploy", "^build", "generate"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "test": {
-      "dependsOn": ["^test", "generate"]
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^db:generate", "^build", "generate"]
     },
     "test:coverage": {
-      "dependsOn": ["^test:coverage"]
+      "outputs": ["coverage/**"],
+      "dependsOn": ["^db:generate", "^build", "^test:coverage", "generate"]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -26,6 +29,14 @@
       "dependsOn": ["generate"],
       "cache": false,
       "persistent": true
+    },
+    "db:migrate:deploy": {},
+    "db:migrate:dev": {},
+    "db:generate": {
+      "cache": false
+    },
+    "db:push": {
+      "cache": false
     }
   }
 }

@@ -10,6 +10,8 @@ import { getUserById, createUser, User } from "@/models/user";
 // The body validator
 const bodyValidator = z.object({
   name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(1),
 });
 
 // The auth function to authorize the request
@@ -39,6 +41,8 @@ export const handler: HandlerFunc<
   const { body } = data;
   const newUser = await createUser({
     name: body.name,
+    email: body.email,
+    password: body.password,
   });
   return successResponse({ id: newUser.id });
 };

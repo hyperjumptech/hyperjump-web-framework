@@ -1,37 +1,50 @@
-export type User = {
-  id: string;
-  name: string;
-};
+import type { User } from "@workspace/database";
+import { prismaClient } from "@workspace/database/client";
 
-const fakeData: User[] = [
-  {
-    id: "1",
-    name: "John Doe",
-  },
-];
+export type { User };
 
-export const getUserById = async (id: string) => {
-  return fakeData.find((user) => user.id === id);
+export const getUserById = async (id: string): Promise<User | null> => {
+  const user = await prismaClient.user.findUnique({
+    where: {
+      id,
+    },
+  });
+  return user;
 };
 
 export const updateUser = async (id: string, data: { name: string }) => {
-  const user = fakeData.find((user) => user.id === id);
+  const user = await prismaClient.user.findUnique({
+    where: {
+      id,
+    },
+  });
   if (!user) {
     return null;
   }
-  user.name = data.name;
-  return user;
+  return prismaClient.user.update({
+    where: {
+      id,
+    },
+    data: {
+      name: data.name,
+    },
+  });
 };
 
-export const createUser = async (data: { name: string }) => {
-  const user = {
-    id: crypto.randomUUID(),
-    name: data.name,
-  };
-  fakeData.push(user);
-  return user;
+export const createUser = async (data: {
+  name: string;
+  email: string;
+  password: string;
+}) => {
+  return prismaClient.user.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      password: data.password,
+    },
+  });
 };
 
 export const getTotalUsers = async () => {
-  return fakeData.length;
+  return prismaClient.user.count();
 };

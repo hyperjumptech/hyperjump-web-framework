@@ -38,7 +38,7 @@ export const handler: HandlerFunc<
   }
   return successResponse({
     id: user.id,
-    name: user.name,
+    name: user.name ?? "",
   });
 };
 
