@@ -41,3 +41,11 @@ Or to run the development server:
 ```bash
 pnpm dev --filter=web
 ```
+
+## Publishing the route-action-gen package
+
+1. Go to the release page in GitHub and create a new release.
+2. The release name should be in the format of `v<version>`.
+3. The release description should be the changelog.
+4. Publish the release.
+5. The package will be published to npm automatically.
