@@ -20,4 +20,9 @@ jobs:
           node-version: 24
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - run: |
+          cd packages/env
+          cp env.example .env
+          cd ../..
+          ./dev-bootstrap.sh
       - run: pnpm build --filter=web
