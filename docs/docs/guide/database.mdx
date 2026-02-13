@@ -1,3 +1,59 @@
 ---
 title: Database & ORM
 ---
+
+This framework uses [Prisma v7](https://www.prisma.io) as the ORM and [Postgres](https://www.postgresql.org) as the database. The database-related packages are located in the `@workspace/database` package. This way, you can easily share the database-related code between the apps and packages.
+
+## Usage
+
+After cloning the repository, you need to run the following command to create the symlinks for the environment variables:
+
+```bash
+./dev-bootstrap.sh
+```
+
+This will create the symlinks for the environment variables in the apps and packages directories.
+
+Then update the schema.prisma file to your needs and delete the migrations directory.
+
+Then run the following command to start the database migrations and generate the Prisma client:
+
+```bash
+pnpm db:migrate:dev
+```
+
+To use the generated Prisma client, you need to add the "@workspace/database" package to your project.
+
+```json
+{
+  "dependencies": {
+    "@workspace/database": "workspace:*"
+  }
+}
+```
+
+Then run the following command to install the dependencies:
+
+```bash
+pnpm install
+```
+
+Then you can use the Prisma client to query the database.
+
+```ts
+import { prismaClient } from "@workspace/database/client";
+
+export const getUserById = async (id: string) => {
+  return prismaClient.user.findUnique({
+    where: {
+      id,
+    },
+  });
+};
+```
+
+## Multiple Databases
+
+If you need to use multiple databases that are not related to each other, you can create a new package by copying the `@workspace/database` package and modify the `prisma/schema.prisma` file to your needs.
+
+If you need to use more than one Prisma client in the same project, make sure you change the global variable name in the `packages/database/src/client.ts` file to avoid conflicts.

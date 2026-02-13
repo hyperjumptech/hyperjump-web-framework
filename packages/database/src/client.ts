@@ -6,15 +6,15 @@ import { getDatabaseParams } from "./utils";
 
 /**
  * This class is used to create a Prisma client with a schema. It also supports SSL connections.
- * To support SSL connections, you need to set the DATABASE_CERT_BASE64 environment variable with the base64 encoded certificate by following these steps:
+ * To support SSL connections, you need to set the DB_CERT_BASE64 environment variable with the base64 encoded certificate by following these steps:
  *
  * 1. Download the certificate
  * 2. Run `base64 -i the-certificate.crt -o the-certificate-base64.txt` to generate the base64 encoded certificate
- * 3. Set the DATABASE_CERT_BASE64 environment variable with the content of the-certificate-base64.txt
+ * 3. Set the DB_CERT_BASE64 environment variable with the content of the-certificate-base64.txt
  * 4. Make sure the postgres url contains `sslmode=require`
  *
  * Example of the postgres url:
- * postgres://root:root@localhost:5432/mediapulse?schema=public&sslmode=require
+ * postgres://root:root@localhost:5432/hyperjump-web-framework?schema=public&sslmode=require
  */
 export class PrismaClientWithSchema extends PrismaClient {
   private currentSchema: string = "public";
@@ -69,10 +69,10 @@ export class PrismaClientWithSchema extends PrismaClient {
 
 let prismaClient: PrismaClientWithSchema;
 
-if (!(global as any).prismaClientMediapulse) {
-  (global as any).prismaClientMediapulse = new PrismaClientWithSchema();
+if (!(global as any).prismaClient) {
+  (global as any).prismaClient = new PrismaClientWithSchema();
 }
 
-prismaClient = (global as any).prismaClientMediapulse;
+prismaClient = (global as any).prismaClient;
 
 export { prismaClient };
