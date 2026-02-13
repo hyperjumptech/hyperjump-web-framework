@@ -1,0 +1,96 @@
+{
+  "name": "route-action-gen",
+  "version": "0.0.3",
+  "description": "A code generation CLI and runtime library that produces type-safe route handlers, client classes, React hooks, server functions, form actions, and form components from declarative route config files for Next.js App Router.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "nextjs",
+    "codegen",
+    "route-handler",
+    "server-actions",
+    "form-actions",
+    "react-hooks",
+    "zod",
+    "type-safe",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyperjumptech/hyperjump-web-framework.git",
+    "directory": "packages/route-action-gen"
+  },
+  "homepage": "https://github.com/hyperjumptech/hyperjump-web-framework/tree/main/packages/route-action-gen",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "bin": {
+    "route-action-gen": "dist/cli/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./lib": {
+      "types": "./dist/lib/index.d.ts",
+      "import": "./dist/lib/index.js"
+    },
+    "./lib/next": {
+      "types": "./dist/lib/next/index.d.ts",
+      "import": "./dist/lib/next/index.js"
+    },
+    "./lib/next/pages": {
+      "types": "./dist/lib/next/pages/index.d.ts",
+      "import": "./dist/lib/next/pages/index.js"
+    },
+    "./lib/react": {
+      "types": "./dist/lib/react/index.d.ts",
+      "import": "./dist/lib/react/index.js"
+    },
+    "./lib/node": {
+      "types": "./dist/lib/node/index.d.ts",
+      "import": "./dist/lib/node/index.js"
+    }
+  },
+  "scripts": {
+    "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage",
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "glob": "^13.0.0"
+  },
+  "peerDependencies": {
+    "zod": "^3.0.0",
+    "next": ">=14.0.0",
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/node": "^20",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitest/coverage-v8": "catalog:",
+    "@workspace/typescript-config": "workspace:*",
+    "next": "^15.5.9",
+    "vitest": "catalog:",
+    "zod": "^3.25.67"
+  }
+}

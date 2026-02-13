@@ -13,3 +13,5 @@ catalog:
   "zod": "^3"
   "@turbo/gen": "^2.6.1"
   "tailwindcss": "^4.1.11"
+  "vitest": "^4.0.18"
+  "@vitest/coverage-v8": "^4.0.18"
