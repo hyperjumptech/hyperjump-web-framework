@@ -1,14 +1,15 @@
-import { z } from "zod";
 import {
   createRequestValidator,
-  HandlerFunc,
+  type HandlerFunc,
   successResponse,
 } from "route-action-gen/lib";
+import { z } from "zod";
+import { getTotalUsers } from "@/models/user";
 
 export const requestValidator = createRequestValidator({});
 
 export const responseValidator = z.object({
-  status: z.string(),
+  totalUsers: z.number(),
 });
 
 export const handler: HandlerFunc<
@@ -16,7 +17,6 @@ export const handler: HandlerFunc<
   typeof responseValidator,
   undefined
 > = async () => {
-  return successResponse({
-    status: "ok",
-  });
+  const totalUsers = await getTotalUsers();
+  return successResponse({ totalUsers });
 };
