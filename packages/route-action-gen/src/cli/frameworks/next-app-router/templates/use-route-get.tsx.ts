@@ -8,7 +8,7 @@
 import { GENERATED_HEADER } from "../../../constants.js";
 
 export interface UseRouteGetTemplateData {
-  /** Config file name without .ts extension, e.g. "route.get.config" */
+  /** Relative import path to the config file (without extension), e.g. "../route.get.config" */
   configFileBase: string;
   /** Config file name, e.g. "route.get.config.ts" */
   configFileName: string;
@@ -29,7 +29,7 @@ export function useRouteGetTemplate(d: UseRouteGetTemplateData): string {
   return `${GENERATED_HEADER}
 "use client";
 
-import { requestValidator, responseValidator } from "../${d.configFileBase}";
+import { requestValidator, responseValidator } from "${d.configFileBase}";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 

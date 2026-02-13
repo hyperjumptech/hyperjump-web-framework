@@ -14,6 +14,7 @@
  *   pnpm vitest --update
  */
 
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import * as prettier from "prettier";
 import { NextPagesRouterGenerator } from "./next-pages-router.js";
@@ -144,10 +145,21 @@ function parseAndGenerate(
     parseConfigFile(c.source, c.method, c.fileName),
   );
 
+  // Simulate the CLI's configImportPrefix computation:
+  // configDir = /test-project/pages/api/posts/[postId]
+  // cwd = /test-project
+  // generatedDir = /test-project/.generated/pages/api/posts/[postId]
+  // configImportPrefix = relative(generatedDir, configDir) + "/"
+  const cwd = "/test-project";
+  const configDir = `${cwd}/pages${routePath}`;
+  const generatedDir = generator.resolveGeneratedDir(configDir, cwd);
+  const configImportPrefix = path.relative(generatedDir, configDir) + "/";
+
   return generator.generate({
-    directory: `/pages${routePath}`,
+    directory: configDir,
     routePath,
     configs: parsedConfigs,
+    configImportPrefix,
   });
 }
 

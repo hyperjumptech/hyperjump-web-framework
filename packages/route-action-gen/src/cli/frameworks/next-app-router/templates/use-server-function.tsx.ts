@@ -8,7 +8,7 @@
 import { GENERATED_HEADER } from "../../../constants.js";
 
 export interface UseServerFunctionTemplateData {
-  /** Config file name without .ts extension, e.g. "route.post.config" */
+  /** Relative import path to the config file (without extension), e.g. "../route.post.config" */
   configFileBase: string;
 }
 
@@ -19,7 +19,7 @@ export function useServerFunctionTemplate(
 "use client";
 
 import { useCallback, useMemo, useState, useTransition } from "react";
-import { responseValidator } from "../${d.configFileBase}";
+import { responseValidator } from "${d.configFileBase}";
 import { serverFunction } from "./server.function";
 import { z } from "zod";
 

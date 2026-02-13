@@ -8,7 +8,7 @@ import {
   handler as deleteHandler,
   requestValidator as deleteRequestValidator,
   responseValidator as deleteResponseValidator,
-} from "../route.delete.config";
+} from "../../../../../pages/api/posts/[postId]/route.delete.config";
 
 /**
  * Next.js Pages Router API route handler.

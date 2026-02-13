@@ -8,7 +8,7 @@
 import { GENERATED_HEADER } from "../../../constants.js";
 
 export interface ServerFunctionTemplateData {
-  /** Config file name without .ts extension, e.g. "route.post.config" */
+  /** Relative import path to the config file (without extension), e.g. "../route.post.config" */
   configFileBase: string;
   /** Config file name, e.g. "route.post.config.ts" */
   configFileName: string;
@@ -22,7 +22,7 @@ import {
   handler,
   requestValidator,
   responseValidator,
-} from "../${d.configFileBase}";
+} from "${d.configFileBase}";
 import { createServerFunction } from "route-action-gen/lib/next";
 
 /**

@@ -42,3 +42,7 @@ export const handler: HandlerFunc<
   });
   return successResponse({ id: newUser.id });
 };
+
+// Next.js Pages Router requires a default export for all files under pages/api/.
+// This is a no-op handler to satisfy the ApiRouteConfig type constraint.
+export default function _noop() {}

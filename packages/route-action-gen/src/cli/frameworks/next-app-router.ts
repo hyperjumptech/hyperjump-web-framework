@@ -12,6 +12,7 @@
  * - form-components.tsx (React form input/label components)
  */
 
+import path from "node:path";
 import type {
   FrameworkGenerator,
   GenerationContext,
@@ -47,7 +48,11 @@ import { readmeTemplate } from "./next-app-router/templates/readme.md.js";
 export class NextAppRouterGenerator implements FrameworkGenerator {
   name = "next-app-router";
 
-  getEntryPointFile(): EntryPointFile {
+  resolveGeneratedDir(configDir: string, _cwd: string): string {
+    return path.join(configDir, ".generated");
+  }
+
+  getEntryPointFile(_generatedDirRelPath: string): EntryPointFile {
     return {
       fileName: "route.ts",
       content: 'export * from "./.generated/route";\n',
@@ -67,15 +72,17 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
 
   generate(context: GenerationContext): GeneratedFile[] {
     const files: GeneratedFile[] = [];
-    const { configs, routePath } = context;
+    const { configs, routePath, configImportPrefix } = context;
 
     // Always generate route.ts and client.ts
-    files.push(this.generateRoute(configs, routePath));
-    files.push(this.generateClient(configs, routePath));
+    files.push(this.generateRoute(configs, routePath, configImportPrefix));
+    files.push(this.generateClient(configs, routePath, configImportPrefix));
 
     // Generate use-route-[method].tsx for each method
     for (const config of configs) {
-      files.push(this.generateUseRouteHook(config, routePath));
+      files.push(
+        this.generateUseRouteHook(config, routePath, configImportPrefix),
+      );
     }
 
     // Find body methods (POST, PUT, PATCH) for server function / form action generation
@@ -87,9 +94,15 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
       // Use the first body method config for server function, form action, and hooks
       const primaryBodyConfig = bodyConfigs[0]!;
 
-      files.push(this.generateServerFunction(primaryBodyConfig));
-      files.push(this.generateFormAction(primaryBodyConfig));
-      files.push(this.generateUseServerFunction(primaryBodyConfig));
+      files.push(
+        this.generateServerFunction(primaryBodyConfig, configImportPrefix),
+      );
+      files.push(
+        this.generateFormAction(primaryBodyConfig, configImportPrefix),
+      );
+      files.push(
+        this.generateUseServerFunction(primaryBodyConfig, configImportPrefix),
+      );
       files.push(this.generateUseFormAction(primaryBodyConfig));
 
       // Generate form-components if there are body or param fields
@@ -120,12 +133,13 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   private generateRoute(
     configs: ParsedConfig[],
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     const entries = configs.map((config) => ({
       method: config.method,
       methodUpper: config.method.toUpperCase(),
       methodPascal: pascalCase(config.method),
-      configFileBase: config.configFileName.replace(".ts", ""),
+      configFileBase: `${configImportPrefix}${config.configFileName.replace(".ts", "")}`,
       routePath,
       isBodyMethod: BODY_METHODS.includes(config.method),
       bodyFields: config.bodyFields,
@@ -142,6 +156,7 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   private generateClient(
     configs: ParsedConfig[],
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     // Build imports
     const imports: string[] = [GENERATED_HEADER];
@@ -151,7 +166,7 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
         `import {\n` +
           `  requestValidator as ${prefix}RequestValidator,\n` +
           `  responseValidator as ${prefix}ResponseValidator,\n` +
-          `} from "../${config.configFileName.replace(".ts", "")}";`,
+          `} from "${configImportPrefix}${config.configFileName.replace(".ts", "")}";`,
       );
     }
     imports.push(`import { z } from "zod";`);
@@ -239,18 +254,28 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   private generateUseRouteHook(
     config: ParsedConfig,
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     if (config.method === "get") {
-      return this.generateUseRouteGetHook(config, routePath);
+      return this.generateUseRouteGetHook(
+        config,
+        routePath,
+        configImportPrefix,
+      );
     }
-    return this.generateUseRouteMutationHook(config, routePath);
+    return this.generateUseRouteMutationHook(
+      config,
+      routePath,
+      configImportPrefix,
+    );
   }
 
   private generateUseRouteGetHook(
     config: ParsedConfig,
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
-    const configFileBase = config.configFileName.replace(".ts", "");
+    const configFileBase = `${configImportPrefix}${config.configFileName.replace(".ts", "")}`;
     const dynamicSegments = extractDynamicSegments(routePath);
 
     // Build input type fields
@@ -308,9 +333,10 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   private generateUseRouteMutationHook(
     config: ParsedConfig,
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     const method = config.method;
-    const configFileBase = config.configFileName.replace(".ts", "");
+    const configFileBase = `${configImportPrefix}${config.configFileName.replace(".ts", "")}`;
 
     // Build input fields for the fetchData function parameter
     const inputFields: string[] = [];
@@ -386,11 +412,14 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   // ---------------------------------------------------------------------------
   // server.function.ts
   // ---------------------------------------------------------------------------
-  private generateServerFunction(config: ParsedConfig): GeneratedFile {
+  private generateServerFunction(
+    config: ParsedConfig,
+    configImportPrefix: string,
+  ): GeneratedFile {
     return {
       fileName: "server.function.ts",
       content: serverFunctionTemplate({
-        configFileBase: config.configFileName.replace(".ts", ""),
+        configFileBase: `${configImportPrefix}${config.configFileName.replace(".ts", "")}`,
         configFileName: config.configFileName,
       }),
     };
@@ -399,11 +428,14 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   // ---------------------------------------------------------------------------
   // form.action.ts
   // ---------------------------------------------------------------------------
-  private generateFormAction(config: ParsedConfig): GeneratedFile {
+  private generateFormAction(
+    config: ParsedConfig,
+    configImportPrefix: string,
+  ): GeneratedFile {
     return {
       fileName: "form.action.ts",
       content: formActionTemplate({
-        configFileBase: config.configFileName.replace(".ts", ""),
+        configFileBase: `${configImportPrefix}${config.configFileName.replace(".ts", "")}`,
         configFileName: config.configFileName,
       }),
     };
@@ -412,11 +444,14 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
   // ---------------------------------------------------------------------------
   // use-server-function.tsx
   // ---------------------------------------------------------------------------
-  private generateUseServerFunction(config: ParsedConfig): GeneratedFile {
+  private generateUseServerFunction(
+    config: ParsedConfig,
+    configImportPrefix: string,
+  ): GeneratedFile {
     return {
       fileName: "use-server-function.tsx",
       content: useServerFunctionTemplate({
-        configFileBase: config.configFileName.replace(".ts", ""),
+        configFileBase: `${configImportPrefix}${config.configFileName.replace(".ts", "")}`,
       }),
     };
   }

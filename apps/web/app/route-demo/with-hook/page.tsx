@@ -16,7 +16,7 @@ export default function WithHookPage() {
     isLoading: getIsLoading,
     refetch: refetchGet,
     lastFetchedAt: getLastFetchedAt,
-  } = useRouteGet({ params: { postId: "1" }, searchParams: {} });
+  } = useRouteGet({ params: { postId: "1" } });
   return (
     <div>
       <h1>This is a page with hooks</h1>

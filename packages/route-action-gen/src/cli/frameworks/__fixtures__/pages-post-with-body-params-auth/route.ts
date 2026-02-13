@@ -8,7 +8,7 @@ import {
   handler as postHandler,
   requestValidator as postRequestValidator,
   responseValidator as postResponseValidator,
-} from "../route.post.config";
+} from "../../../../../pages/api/posts/[postId]/route.post.config";
 
 /**
  * Next.js Pages Router API route handler.

@@ -5,7 +5,7 @@
 import {
   requestValidator as deleteRequestValidator,
   responseValidator as deleteResponseValidator,
-} from "../route.delete.config";
+} from "../../../../../pages/api/posts/[postId]/route.delete.config";
 import { z } from "zod";
 
 /**

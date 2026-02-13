@@ -14,6 +14,7 @@
  * - use-form-action.tsx
  */
 
+import path from "node:path";
 import type {
   FrameworkGenerator,
   GenerationContext,
@@ -47,10 +48,15 @@ import { formComponentsTemplate } from "./next-app-router/templates/form-compone
 export class NextPagesRouterGenerator implements FrameworkGenerator {
   name = "next-pages-router";
 
-  getEntryPointFile(): EntryPointFile {
+  resolveGeneratedDir(configDir: string, cwd: string): string {
+    const relativeConfigPath = path.relative(cwd, configDir);
+    return path.join(cwd, ".generated", relativeConfigPath);
+  }
+
+  getEntryPointFile(generatedDirRelPath: string): EntryPointFile {
     return {
       fileName: "index.ts",
-      content: 'export { default } from "./.generated/route";\n',
+      content: `export { default } from "${generatedDirRelPath}/route";\n`,
     };
   }
 
@@ -67,15 +73,17 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
 
   generate(context: GenerationContext): GeneratedFile[] {
     const files: GeneratedFile[] = [];
-    const { configs, routePath } = context;
+    const { configs, routePath, configImportPrefix } = context;
 
     // Always generate route.ts and client.ts
-    files.push(this.generateRoute(configs, routePath));
-    files.push(this.generateClient(configs, routePath));
+    files.push(this.generateRoute(configs, routePath, configImportPrefix));
+    files.push(this.generateClient(configs, routePath, configImportPrefix));
 
     // Generate use-route-[method].tsx for each method
     for (const config of configs) {
-      files.push(this.generateUseRouteHook(config, routePath));
+      files.push(
+        this.generateUseRouteHook(config, routePath, configImportPrefix),
+      );
     }
 
     // Find body methods (POST, PUT, PATCH) for form components generation
@@ -106,6 +114,7 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
   private generateRoute(
     configs: ParsedConfig[],
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     const entries = configs.map((config) => ({
       method: config.method,
@@ -116,7 +125,7 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
 
     return {
       fileName: "route.ts",
-      content: pagesRouteTemplate({ entries, paramNames }),
+      content: pagesRouteTemplate({ entries, paramNames, configImportPrefix }),
     };
   }
 
@@ -126,6 +135,7 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
   private generateClient(
     configs: ParsedConfig[],
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     // Build imports
     const imports: string[] = [GENERATED_HEADER];
@@ -135,7 +145,7 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
         `import {\n` +
           `  requestValidator as ${prefix}RequestValidator,\n` +
           `  responseValidator as ${prefix}ResponseValidator,\n` +
-          `} from "../${config.configFileName.replace(".ts", "")}";`,
+          `} from "${configImportPrefix}${config.configFileName.replace(".ts", "")}";`,
       );
     }
     imports.push(`import { z } from "zod";`);
@@ -223,18 +233,28 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
   private generateUseRouteHook(
     config: ParsedConfig,
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     if (config.method === "get") {
-      return this.generateUseRouteGetHook(config, routePath);
+      return this.generateUseRouteGetHook(
+        config,
+        routePath,
+        configImportPrefix,
+      );
     }
-    return this.generateUseRouteMutationHook(config, routePath);
+    return this.generateUseRouteMutationHook(
+      config,
+      routePath,
+      configImportPrefix,
+    );
   }
 
   private generateUseRouteGetHook(
     config: ParsedConfig,
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
-    const configFileBase = config.configFileName.replace(".ts", "");
+    const configFileBase = `${configImportPrefix}${config.configFileName.replace(".ts", "")}`;
     const dynamicSegments = extractDynamicSegments(routePath);
 
     // Build input type fields
@@ -292,9 +312,10 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
   private generateUseRouteMutationHook(
     config: ParsedConfig,
     routePath: string,
+    configImportPrefix: string,
   ): GeneratedFile {
     const method = config.method;
-    const configFileBase = config.configFileName.replace(".ts", "");
+    const configFileBase = `${configImportPrefix}${config.configFileName.replace(".ts", "")}`;
 
     // Build input fields for the fetchData function parameter
     const inputFields: string[] = [];

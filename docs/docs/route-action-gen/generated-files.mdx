@@ -2,7 +2,10 @@
 title: Generated Files
 ---
 
-When you run `npx route-action-gen`, the CLI generates files in a `.generated/` subdirectory next to each group of config files. It also creates an entry point file in the config directory if one does not exist.
+When you run `npx route-action-gen`, the CLI generates files in a `.generated/` directory and creates an entry point file in the config directory if one does not exist.
+
+- **App Router**: generated files are placed in `.generated/` inside the config directory (e.g. `app/api/posts/.generated/`).
+- **Pages Router**: generated files are placed at the project root under `.generated/` in a mirror of the config path (e.g. `.generated/pages/api/users/`). This prevents Next.js from treating them as API routes.
 
 The set of generated files depends on the framework and the HTTP methods defined.
 
@@ -65,10 +68,10 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
 
 ## Pages Router
 
-For the Next.js Pages Router, the entry point file is `index.ts`:
+For the Next.js Pages Router, the entry point file is `index.ts`. The import path points to the project-root `.generated/` mirror:
 
 ```ts title="pages/api/users/index.ts"
-export { default } from "./.generated/route";
+export { default } from "../../../.generated/pages/api/users/route";
 ```
 
 The Pages Router uses a single default export via `createPagesRoute` instead of multiple named exports.
@@ -95,6 +98,19 @@ The Pages Router uses a single default export via `createPagesRoute` instead of 
   features that rely on React Server Components.
 </Callout>
 
+### Config file default export
+
+Next.js treats every `.ts` / `.tsx` file under `pages/api/` as an API route and requires a default export. Since config files (`route.*.config.ts`) are not actual route handlers, you must add a no-op default export:
+
+```ts
+export default function _noop() {}
+```
+
+<Callout type="warn" title="Required">
+  Without this export, the Next.js build will fail with a type error: `Property
+  'default' is missing in type ... but required in type 'ApiRouteConfig'.`
+</Callout>
+
 ### Example directory structure
 
 <Files>
@@ -102,14 +118,14 @@ The Pages Router uses a single default export via `createPagesRoute` instead of 
     <File name="route.get.config.ts" />
     <File name="route.post.config.ts" />
     <File name="index.ts" />
-    <Folder name=".generated" defaultOpen>
-      <File name="route.ts" />
-      <File name="client.ts" />
-      <File name="use-route-get.tsx" />
-      <File name="use-route-post.tsx" />
-      <File name="form-components.tsx" />
-      <File name="README.md" />
-    </Folder>
+  </Folder>
+  <Folder name=".generated/pages/api/users" defaultOpen>
+    <File name="route.ts" />
+    <File name="client.ts" />
+    <File name="use-route-get.tsx" />
+    <File name="use-route-post.tsx" />
+    <File name="form-components.tsx" />
+    <File name="README.md" />
   </Folder>
 </Files>
 
