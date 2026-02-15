@@ -1,12 +1,12 @@
 ---
-description: Workflow for creating Next.js route handlers (App Router) or API routes (Pages Router) using route-action-gen
+description: Workflow for creating Next.js route handlers (App Router), API routes (Pages Router) and server actions/functions using route-action-gen
 globs: "**/route.*.config.ts"
 alwaysApply: false
 ---
 
 # Route Action Gen Workflow
 
-When creating a new route handler or API route, always use `route-action-gen`.
+When creating a new route handler, API route or server action/function, always use `route-action-gen`.
 
 ## Step 1: Create the config file
 

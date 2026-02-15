@@ -33,16 +33,20 @@ Apply these in order of preference:
 
 ## Data & Mutations
 
-| Scenario | Approach |
-|----------|----------|
-| Data mutation | Server Action + `useActionState` |
-| Server action coupling | Accept server action via **props** (dependency injection) |
-| Client-side fetching | `useSWR` + API Route Handler |
-| Input validation | **Zod** in every server action and API endpoint |
+| Scenario               | Approach                                                                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Data mutation          | Server Action + `useActionState` using `route-action-gen`. See the `/route-action-gen-workflow` rule for more details.                                                         |
+| Server action coupling | Accept server action via **props** (dependency injection)                                                                                                                      |
+| Client-side fetching   | Use the generated files by `route-action-gen` to fetch data from the server action or API end point/route handler. See the `/route-action-gen-workflow` rule for more details. |
+| Input validation       | **Zod** in every server action and API endpoint                                                                                                                                |
 
 ```tsx
 // Server action injected via props
-const CreatePostForm = ({ createPost }: { createPost: (fd: FormData) => Promise<State> }) => {
+const CreatePostForm = ({
+  createPost,
+}: {
+  createPost: (fd: FormData) => Promise<State>;
+}) => {
   const [state, formAction, pending] = useActionState(createPost, initialState);
   return <form action={formAction}>...</form>;
 };
@@ -87,7 +91,9 @@ const DataTable = ({ children }: { children: React.ReactNode }) => (
 const DataTableHeader = ({ columns }: { columns: string[] }) => (
   <TableHeader>
     <TableRow>
-      {columns.map((col) => <TableHead key={col}>{col}</TableHead>)}
+      {columns.map((col) => (
+        <TableHead key={col}>{col}</TableHead>
+      ))}
     </TableRow>
   </TableHeader>
 );
