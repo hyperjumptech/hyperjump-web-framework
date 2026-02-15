@@ -91,3 +91,11 @@ test("getActiveUsers returns only active users", async () => {
 ## React component
 
 Use the /react-component skill when creating a React component.
+
+## React Server Action/Function
+
+Follow the /route-action-gen-workflow rule when creating a server action/function.
+
+## Next.js Route Handler/API Route
+
+Follow the /route-action-gen-workflow rule when creating a Next.js route handler/API route.
