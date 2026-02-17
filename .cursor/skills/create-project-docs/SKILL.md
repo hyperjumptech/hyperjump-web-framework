@@ -213,7 +213,9 @@ print("Hello")
 <Mermaid chart="graph TD; A-->B; B-->C;" />
 ```
 
-Use the "mermaid-diagram" skill to create mermaid diagrams.
+Always use the `<Mermaid>` component to render mermaid diagrams. Using code fence block will not render the diagram!
+
+Use the "mermaid-diagram" skill to create the chart definition string.
 
 ### 6. Build and Preview
 
