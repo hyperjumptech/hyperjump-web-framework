@@ -3,7 +3,7 @@
   "ui": "tui",
   "tasks": {
     "generate": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "db:generate"],
       "cache": false
     },
     "build": {
