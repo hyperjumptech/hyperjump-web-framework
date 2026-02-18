@@ -89,6 +89,9 @@ importers:
       '@workspace/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@workspace/email-send':
+        specifier: workspace:*
+        version: link:../../packages/email-send
       '@workspace/env':
         specifier: workspace:*
         version: link:../../packages/env

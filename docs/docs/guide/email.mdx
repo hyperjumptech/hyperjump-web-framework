@@ -294,6 +294,31 @@ it("sends a welcome email on signup", async () => {
 
 The `createEmailSender` config also accepts a `render` override, so you can skip the actual template rendering in unit tests and focus on verifying the send behavior.
 
+## Development
+
+To test the email system during development, run the following command:
+
+```bash
+# From the root of the monorepo
+docker-compose up
+```
+
+This will start the email server and make the web UI available at `http://localhost:9000`, where you can view the inbox and the sent emails.
+
+In your app, you can create an email sender using the `createEmailSender` function with the transport set to the `createSmtpTransport` function and configure the SMTP server to use the email server.
+
+```ts
+const emailSender = createEmailSender({
+  from: "App <noreply@example.com>",
+  transport: createSmtpTransport({
+    host: "localhost",
+    port: 2500,
+  }),
+});
+```
+
+See the [apps/web/email-demo/actions/route.post.config.ts](https://github.com/hyperjump-tech/hyperjump-web-framework/blob/main/apps/web/app/email-demo/actions/route.post.config.ts) file for an example.
+
 ## Ground Rules
 
 |     | Action                                                                                          |
@@ -305,3 +330,7 @@ The `createEmailSender` config also accepts a `render` override, so you can skip
 | ✅  | Inject a fake transport in tests instead of mocking internals.                                  |
 | ❌  | Do not edit `packages/email-templates/src/index.ts` by hand. It is auto-generated.              |
 | ❌  | Do not hardcode API keys. Use `@workspace/env` for credentials like `RESEND_API_KEY`.           |
+
+```
+
+```

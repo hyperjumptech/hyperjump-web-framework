@@ -16,6 +16,7 @@
     "test:coverage": "vitest --run --coverage"
   },
   "dependencies": {
+    "@workspace/email-send": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/ui": "workspace:*",
     "@prisma/adapter-pg": "^7.2.0",

@@ -12,3 +12,10 @@ services:
     volumes:
       - ./data:/var/lib/postgresql/data
     restart: unless-stopped
+  inbucket:
+    image: inbucket/inbucket:latest
+    ports:
+      - 9000:9000 # web interface. Open http://localhost:9000 to view the inbox.
+      - 2500:2500 # SMTP server. Use this to send emails.
+      - 1100:1100 # POP3 server
+    restart: unless-stopped
