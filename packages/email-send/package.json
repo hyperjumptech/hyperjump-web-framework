@@ -1,0 +1,32 @@
+{
+  "name": "@workspace/email-send",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage"
+  },
+  "private": true,
+  "dependencies": {
+    "@workspace/email-templates": "workspace:*",
+    "@react-email/components": "^1.0.7",
+    "react": "^19.2.4",
+    "nodemailer": "^7.0.3",
+    "resend": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

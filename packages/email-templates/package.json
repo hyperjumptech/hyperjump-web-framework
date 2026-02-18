@@ -4,8 +4,9 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "dev": "email dev --dir src",
-    "export": "email export --dir src",
+    "dev": "pnpm run generate && email dev --dir src",
+    "export": "pnpm run generate && email export --dir src",
+    "generate": "tsx scripts/generate-index.ts",
     "test": "vitest --run",
     "test:coverage": "vitest --run --coverage"
   },
@@ -28,6 +29,7 @@
     "eslint": "^9.32.0",
     "postcss": "^8.4.35",
     "@workspace/typescript-config": "workspace:*",
+    "tsx": "^4",
     "typescript": "catalog:"
   }
 }

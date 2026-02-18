@@ -1,3 +1,307 @@
 ---
 title: E-mail
 ---
+
+This project uses two shared packages for email: `@workspace/email-templates` for designing email templates with [React Email](https://react.email), and `@workspace/email-send` for rendering and delivering them via any transport (SMTP, Resend, etc.).
+
+The setup is fully type-safe. TypeScript will prevent you from using a template that does not exist or passing the wrong data to a template.
+
+## Email Templates
+
+Email templates live in the `packages/email-templates/src/` directory. Each template is a React component that uses components from `@react-email/components` to define the email's HTML structure.
+
+### Creating a template
+
+Create a new `.tsx` file inside `src/`, organized by domain folder. For example, to create an order confirmation email:
+
+```tsx title="packages/email-templates/src/order/confirmation.tsx"
+import {
+  Body,
+  Container,
+  Head,
+  Heading,
+  Html,
+  Preview,
+  Text,
+} from "@react-email/components";
+
+export interface OrderConfirmationEmailProps {
+  customerName: string;
+  orderId: string;
+}
+
+export const OrderConfirmationEmail = ({
+  customerName,
+  orderId,
+}: OrderConfirmationEmailProps) => {
+  return (
+    <Html>
+      <Head />
+      <Preview>Your order #{orderId} is confirmed</Preview>
+      <Body>
+        <Container>
+          <Heading>Thank you, {customerName}!</Heading>
+          <Text>Your order #{orderId} has been confirmed.</Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+};
+
+OrderConfirmationEmail.PreviewProps = {
+  customerName: "Jane",
+  orderId: "12345",
+} satisfies OrderConfirmationEmailProps;
+
+export default OrderConfirmationEmail;
+```
+
+Every template file must follow these conventions:
+
+1. Export an **interface** ending in `Props` (e.g., `OrderConfirmationEmailProps`).
+2. Export a **named const** for the component (e.g., `OrderConfirmationEmail`).
+3. Set `PreviewProps` on the component for the React Email dev preview.
+4. Add a **default export** of the component.
+
+### Generating the template registry
+
+After creating or removing a template, run the code generation script:
+
+```bash
+pnpm --filter @workspace/email-templates generate
+```
+
+This scans `src/` for all `.tsx` template files, extracts the component and props names, and writes a `src/index.ts` file that exports a `TemplateMap` type and a `templates` runtime object. You never need to edit `src/index.ts` by hand.
+
+<Callout type="info" title="Good to know">
+  The `generate` script is wired into Turbo's `generate` task, which runs
+  automatically before `build`, `test`, and `dev`. You only need to run it
+  manually when you want to verify the output immediately.
+</Callout>
+
+The generated `TemplateMap` type is what makes the sending API type-safe. It maps template string keys (derived from file paths) to their props types:
+
+```ts
+type TemplateMap = {
+  "order/confirmation": OrderConfirmationEmailProps;
+  "user/password-forgot": PasswordForgotEmailProps;
+  "user/signup": SignupEmailProps;
+};
+```
+
+### Previewing templates
+
+Start the React Email dev server to preview templates in the browser:
+
+```bash
+pnpm --filter @workspace/email-templates dev
+```
+
+The `PreviewProps` you set on each component will be used as sample data in the preview.
+
+## Sending Emails
+
+The `@workspace/email-send` package provides a type-safe API for rendering templates and delivering them. It is transport-agnostic -- you choose how emails are delivered by plugging in a transport.
+
+### Setup
+
+Add `@workspace/email-send` as a dependency in your app's `package.json`:
+
+```json title="apps/web/package.json"
+{
+  "dependencies": {
+    "@workspace/email-send": "workspace:*"
+  }
+}
+```
+
+### Creating a sender
+
+Use `createEmailSender` to create a configured sender. You provide a default `from` address and a transport:
+
+```ts tab="Resend"
+import {
+  createEmailSender,
+  createResendTransport,
+} from "@workspace/email-send";
+import { env } from "@workspace/env";
+
+export const emailSender = createEmailSender({
+  from: "App <noreply@example.com>",
+  transport: createResendTransport({ apiKey: env.RESEND_API_KEY }),
+});
+```
+
+```ts tab="SMTP"
+import { createEmailSender, createSmtpTransport } from "@workspace/email-send";
+import { env } from "@workspace/env";
+
+export const emailSender = createEmailSender({
+  from: "App <noreply@example.com>",
+  transport: createSmtpTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: true,
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+    },
+  }),
+});
+```
+
+### Sending an email
+
+Call `emailSender.send()` with the template name and its data. TypeScript enforces that:
+
+- The `template` value must be one of the registered template keys.
+- The `data` object must match the template's props type exactly.
+
+```ts
+await emailSender.send({
+  to: "user@example.com",
+  subject: "Welcome!",
+  template: "user/signup",
+  data: { name: "Alice", verifyUrl: "https://example.com/verify?token=abc" },
+});
+```
+
+If you pass a template name that does not exist, or data that does not match the template's props, you get a compile-time error:
+
+```ts
+// Type error: '"user/nonexistent"' is not assignable
+await emailSender.send({
+  to: "user@example.com",
+  subject: "Hello",
+  template: "user/nonexistent",
+  data: {},
+});
+
+// Type error: Property 'verifyUrl' is missing
+await emailSender.send({
+  to: "user@example.com",
+  subject: "Welcome",
+  template: "user/signup",
+  data: { name: "Alice" },
+});
+```
+
+### Overriding the sender address
+
+You can override the `from` address on a per-email basis:
+
+```ts
+await emailSender.send({
+  to: "user@example.com",
+  subject: "Reset your password",
+  template: "user/password-forgot",
+  data: { name: "Alice", resetUrl: "https://example.com/reset?token=xyz" },
+  from: "Support <support@example.com>",
+});
+```
+
+### Sending to multiple recipients
+
+Pass an array to the `to` field:
+
+```ts
+await emailSender.send({
+  to: ["alice@example.com", "bob@example.com"],
+  subject: "Team update",
+  template: "user/signup",
+  data: { name: "Team", verifyUrl: "https://example.com/verify" },
+});
+```
+
+## Architecture
+
+The email system is split into two packages to separate concerns:
+
+- **`@workspace/email-templates`** owns the templates and the auto-generated type registry. It has no knowledge of how emails are delivered.
+- **`@workspace/email-send`** owns the rendering and delivery logic. It depends on `email-templates` for the registry but is agnostic about which transport is used.
+
+When you call `emailSender.send()`, the following happens:
+
+1. The template component is looked up from the registry by name.
+2. The component is rendered to an HTML string using React Email's `render()`.
+3. The HTML is passed to the configured transport, which delivers it.
+
+### Adding a new transport
+
+To support a new email provider, create a function that returns an `EmailTransport`:
+
+```ts
+import type { EmailTransport } from "@workspace/email-send";
+
+export const createMailgunTransport = (config: {
+  apiKey: string;
+  domain: string;
+}): EmailTransport => ({
+  async send(message) {
+    // Call the Mailgun API with message.from, message.to, message.subject, message.html
+    return { success: true, messageId: "..." };
+  },
+});
+```
+
+The `EmailTransport` interface has a single method:
+
+```ts
+interface EmailTransport {
+  send(message: EmailMessage): Promise<EmailResult>;
+}
+```
+
+Where `EmailMessage` is `{ from, to, subject, html }` and `EmailResult` is `{ success, messageId? }`.
+
+## Testing
+
+When testing code that sends emails, inject a fake transport instead of mocking the email sender:
+
+```ts
+import { createEmailSender } from "@workspace/email-send";
+import type { EmailTransport, EmailMessage } from "@workspace/email-send";
+
+const createFakeTransport = (): EmailTransport & {
+  lastMessage?: EmailMessage;
+} => {
+  const transport: EmailTransport & { lastMessage?: EmailMessage } = {
+    async send(message) {
+      transport.lastMessage = message;
+      return { success: true, messageId: "test-id" };
+    },
+  };
+  return transport;
+};
+
+it("sends a welcome email on signup", async () => {
+  // Setup
+  const transport = createFakeTransport();
+  const emailSender = createEmailSender({
+    from: "test@example.com",
+    transport,
+    render: async () => "<html>rendered</html>",
+  });
+
+  // Act
+  await signupUser({ email: "user@example.com", emailSender });
+
+  // Assert
+  expect(transport.lastMessage?.to).toBe("user@example.com");
+  expect(transport.lastMessage?.subject).toContain("Welcome");
+});
+```
+
+The `createEmailSender` config also accepts a `render` override, so you can skip the actual template rendering in unit tests and focus on verifying the send behavior.
+
+## Ground Rules
+
+|     | Action                                                                                          |
+| --- | ----------------------------------------------------------------------------------------------- |
+| ✅  | Use `@react-email/components` for building email templates.                                     |
+| ✅  | Export an interface ending in `Props` and a named const from every template file.               |
+| ✅  | Run `pnpm generate` (or let Turbo run it) after adding or removing templates.                   |
+| ✅  | Use `createEmailSender` with a transport -- never call a provider's API directly from app code. |
+| ✅  | Inject a fake transport in tests instead of mocking internals.                                  |
+| ❌  | Do not edit `packages/email-templates/src/index.ts` by hand. It is auto-generated.              |
+| ❌  | Do not hardcode API keys. Use `@workspace/env` for credentials like `RESEND_API_KEY`.           |

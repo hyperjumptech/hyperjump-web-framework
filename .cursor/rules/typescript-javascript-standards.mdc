@@ -92,6 +92,10 @@ test("getActiveUsers returns only active users", async () => {
 
 Use the /react-component skill when creating a React component.
 
+## Email template
+
+Use the /email-template skill when creating an email template.
+
 ## React Server Action/Function
 
 Follow the /route-action-gen-workflow rule when creating a server action/function.
