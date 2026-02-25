@@ -82,6 +82,7 @@ Options:
   --version             Show version number
   --framework <name>    Framework target (default: ${DEFAULT_FRAMEWORK})
                         Use "auto" to detect per directory (pages/ vs app/).
+  --with-entrypoint     Create missing route entry-point files during generate
   --force               Overwrite existing file (for create command)
 
 Available frameworks:
@@ -98,6 +99,8 @@ export interface CliArgs {
   help: boolean;
   version: boolean;
   framework: string;
+  /** Create missing entry-point files for generated routes */
+  withEntrypoint: boolean;
   /** HTTP method for the `create` command */
   createMethod?: HttpMethod;
   /** Target directory for the `create` command */
@@ -106,12 +109,19 @@ export interface CliArgs {
   force: boolean;
 }
 
+/**
+ * Parse CLI arguments into a structured configuration object.
+ *
+ * @param argv - Raw command-line args, excluding `node` and script path
+ * @returns Parsed CLI arguments for command routing and generation behavior
+ */
 export function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {
     command: "generate",
     help: false,
     version: false,
     framework: DEFAULT_FRAMEWORK,
+    withEntrypoint: false,
     force: false,
   };
 
@@ -123,6 +133,8 @@ export function parseArgs(argv: string[]): CliArgs {
       args.version = true;
     } else if (arg === "--force") {
       args.force = true;
+    } else if (arg === "--with-entrypoint") {
+      args.withEntrypoint = true;
     } else if (arg === "--framework" || arg === "-f") {
       const next = argv[i + 1];
       if (!next || next.startsWith("-")) {
@@ -181,6 +193,7 @@ export function parseArgs(argv: string[]): CliArgs {
 export function generate(
   deps: CliDeps,
   frameworkName: string,
+  options: { withEntrypoint?: boolean } = {},
 ): {
   success: boolean;
   generated?: {
@@ -193,6 +206,7 @@ export function generate(
   }[];
   error?: string;
 } {
+  const withEntrypoint = options.withEntrypoint ?? false;
   const isAuto = frameworkName === "auto";
 
   // When not auto, resolve the generator once up-front
@@ -269,7 +283,7 @@ export function generate(
       writtenFiles.push(file.fileName);
     }
 
-    // Create entry point file if it doesn't exist
+    // Compute entry point metadata for reporting
     const generatedDirRelPath = path.relative(group.directory, generatedDir);
     // Ensure the path starts with "./" or "../" for a valid import specifier
     const importPath = generatedDirRelPath.startsWith(".")
@@ -277,9 +291,11 @@ export function generate(
       : `./${generatedDirRelPath}`;
     const entryPoint = generator.getEntryPointFile(importPath);
     const entryPointPath = path.join(group.directory, entryPoint.fileName);
-    let entryPointCreated = false;
 
-    if (!deps.existsSync(entryPointPath)) {
+    let entryPointCreated = false;
+    const entryPointFile = entryPoint.fileName;
+
+    if (withEntrypoint && !deps.existsSync(entryPointPath)) {
       deps.writeFileSync(entryPointPath, entryPoint.content);
       entryPointCreated = true;
     }
@@ -288,7 +304,7 @@ export function generate(
       directory: group.directory,
       generatedDir,
       files: writtenFiles,
-      entryPointFile: entryPoint.fileName,
+      entryPointFile,
       entryPointCreated,
       framework: generator.name,
     });
@@ -354,7 +370,9 @@ export function main() {
   );
   console.log(`Scanning for config files in: ${deps.cwd()}\n`);
 
-  const result = generate(deps, args.framework);
+  const result = generate(deps, args.framework, {
+    withEntrypoint: args.withEntrypoint,
+  });
 
   if (!result.success) {
     console.error(`Error: ${result.error}`);
@@ -367,10 +385,20 @@ export function main() {
       for (const file of group.files) {
         console.log(`  - ${file}`);
       }
-      if (group.entryPointCreated && group.entryPointFile) {
-        console.log(
-          `  Created entry point: ${group.directory}/${group.entryPointFile}`,
-        );
+      if (group.entryPointFile) {
+        const entryPointPath = `${group.directory}/${group.entryPointFile}`;
+        if (args.withEntrypoint) {
+          if (group.entryPointCreated) {
+            console.log(`  Created entry point: ${entryPointPath}`);
+          } else {
+            console.log(`  Entry point exists: ${entryPointPath}`);
+          }
+        } else {
+          console.log(
+            `To create a route handler or an API end point, create ${entryPointPath} file`,
+            `  or run with --with-entrypoint to create it automatically. Read the generated README.md for more information.`,
+          );
+        }
       }
       console.log();
     }

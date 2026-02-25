@@ -110,7 +110,15 @@ describe("parseArgs", () => {
     expect(result.help).toBe(false);
     expect(result.version).toBe(false);
     expect(result.framework).toBe("auto");
+    expect(result.withEntrypoint).toBe(false);
     expect(result.force).toBe(false);
+  });
+  it("enables entry-point creation when --with-entrypoint flag is passed", () => {
+    // Act
+    const result = parseArgs(["--with-entrypoint"]);
+
+    // Assert
+    expect(result.withEntrypoint).toBe(true);
   });
 
   it("sets help to true when --help flag is passed", () => {
@@ -202,12 +210,14 @@ describe("parseArgs", () => {
       "--version",
       "--framework",
       "my-framework",
+      "--with-entrypoint",
     ]);
 
     // Assert
     expect(result.help).toBe(true);
     expect(result.version).toBe(true);
     expect(result.framework).toBe("my-framework");
+    expect(result.withEntrypoint).toBe(true);
   });
 
   it("ignores unrecognized arguments", () => {
@@ -334,6 +344,7 @@ describe("HELP_TEXT", () => {
     expect(HELP_TEXT).toContain("--help");
     expect(HELP_TEXT).toContain("--version");
     expect(HELP_TEXT).toContain("--framework");
+    expect(HELP_TEXT).toContain("--with-entrypoint");
     expect(HELP_TEXT).toContain("auto");
     expect(HELP_TEXT).toContain("next-app-router");
     expect(HELP_TEXT).toContain("next-pages-router");
@@ -544,9 +555,73 @@ describe("main", () => {
     );
   });
 
-  it("creates app router entry point file when it does not exist", () => {
+  it("does not create app router entry point file by default", () => {
     // Setup
     process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    // Act
+    main();
+
+    // Assert
+    expect(fs.writeFileSync).not.toHaveBeenCalledWith(
+      "/test-project/app/api/posts/route.ts",
+      expect.any(String),
+      expect.any(String),
+    );
+  });
+
+  it("does not create pages router entry point file by default", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "pages/api/users/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+    vi.mocked(fs.existsSync).mockReturnValue(false);
+
+    // Act
+    main();
+
+    // Assert
+    expect(fs.writeFileSync).not.toHaveBeenCalledWith(
+      "/test-project/pages/api/users/index.ts",
+      expect.any(String),
+      expect.any(String),
+    );
+  });
+
+  it("prints entry point info by default with --with-entrypoint hint", () => {
+    // Setup
+    process.argv = ["node", "index.js"];
+    vi.spyOn(process, "cwd").mockReturnValue("/test-project");
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.mocked(globSync).mockReturnValue([
+      "app/api/posts/route.post.config.ts",
+    ] as never);
+    vi.mocked(fs.readFileSync).mockReturnValue(samplePostConfig as never);
+
+    // Act
+    main();
+
+    // Assert
+    expect(logSpy).toHaveBeenCalledWith(
+      "To create a route handler or an API end point, create /test-project/app/api/posts/route.ts file",
+      "  or run with --with-entrypoint to create it automatically. Read the generated README.md for more information.",
+    );
+  });
+
+  it("creates app router entry point file when --with-entrypoint is passed", () => {
+    // Setup
+    process.argv = ["node", "index.js", "--with-entrypoint"];
     vi.spyOn(process, "cwd").mockReturnValue("/test-project");
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.mocked(globSync).mockReturnValue([
@@ -566,11 +641,10 @@ describe("main", () => {
     );
   });
 
-  it("creates pages router entry point file when it does not exist", () => {
+  it("creates pages router entry point file when --with-entrypoint is passed", () => {
     // Setup
-    process.argv = ["node", "index.js"];
+    process.argv = ["node", "index.js", "--with-entrypoint"];
     vi.spyOn(process, "cwd").mockReturnValue("/test-project");
-    vi.spyOn(console, "log").mockImplementation(() => {});
     vi.mocked(globSync).mockReturnValue([
       "pages/api/users/route.post.config.ts",
     ] as never);
@@ -581,8 +655,6 @@ describe("main", () => {
     main();
 
     // Assert
-    // Pages Router generates files to .generated/ at the project root,
-    // so the entry point import path is relative from pages/api/users/ to .generated/pages/api/users/
     expect(fs.writeFileSync).toHaveBeenCalledWith(
       "/test-project/pages/api/users/index.ts",
       'export { default } from "../../../.generated/pages/api/users/route";\n',
@@ -590,9 +662,9 @@ describe("main", () => {
     );
   });
 
-  it("does not overwrite existing entry point file", () => {
+  it("does not overwrite existing entry point file when --with-entrypoint is passed", () => {
     // Setup
-    process.argv = ["node", "index.js"];
+    process.argv = ["node", "index.js", "--with-entrypoint"];
     vi.spyOn(process, "cwd").mockReturnValue("/test-project");
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.mocked(globSync).mockReturnValue([
@@ -612,9 +684,9 @@ describe("main", () => {
     );
   });
 
-  it("prints entry point creation message when file is created", () => {
+  it("prints entry point creation message when --with-entrypoint creates a file", () => {
     // Setup
-    process.argv = ["node", "index.js"];
+    process.argv = ["node", "index.js", "--with-entrypoint"];
     vi.spyOn(process, "cwd").mockReturnValue("/test-project");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.mocked(globSync).mockReturnValue([
@@ -632,9 +704,9 @@ describe("main", () => {
     );
   });
 
-  it("does not print entry point creation message when file already exists", () => {
+  it("prints entry point exists message when --with-entrypoint finds existing file", () => {
     // Setup
-    process.argv = ["node", "index.js"];
+    process.argv = ["node", "index.js", "--with-entrypoint"];
     vi.spyOn(process, "cwd").mockReturnValue("/test-project");
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.mocked(globSync).mockReturnValue([
@@ -647,10 +719,8 @@ describe("main", () => {
     main();
 
     // Assert
-    const entryPointCalls = logSpy.mock.calls.filter(
-      (call) =>
-        typeof call[0] === "string" && call[0].includes("Created entry point"),
+    expect(logSpy).toHaveBeenCalledWith(
+      "  Entry point exists: /test-project/app/api/posts/route.ts",
     );
-    expect(entryPointCalls).toHaveLength(0);
   });
 });

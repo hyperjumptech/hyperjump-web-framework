@@ -104,6 +104,7 @@ Options:
   --version             Show version number
   --framework <name>    Framework target (default: auto)
                         Use "auto" to detect per directory (pages/ vs app/).
+  --with-entrypoint     Create missing route entry-point files during generate
   --force               Overwrite existing file (for create command)
 
 Available frameworks:
@@ -121,7 +122,13 @@ When run without a command, the CLI scans for config files and generates code.
 3. **Parse** - Extracts metadata from each config file (validators, fields, auth presence)
 4. **Generate** - Produces framework-specific files using templates
 5. **Write** - Outputs generated files to a `.generated/` subdirectory alongside the config files
-6. **Entry Point** - Creates an entry point file (`route.ts` for App Router, `index.ts` for Pages Router) if one doesn't already exist
+6. **Entry Point (optional)** - Creates an entry point file (`route.ts` for App Router, `index.ts` for Pages Router) only when `--with-entrypoint` is passed
+
+If you were relying on the previous default behavior, run:
+
+```bash
+npx route-action-gen --with-entrypoint
+```
 
 #### Example Output
 
@@ -243,11 +250,11 @@ type AuthFunc<TUser> = (request?: Request) => Promise<TUser>;
 
 ## Generated Files
 
-The files generated depend on the HTTP method and the framework. All files are output to a `.generated/` subdirectory. An entry point file is also created in the parent directory if it doesn't already exist.
+The files generated depend on the HTTP method and the framework. All files are output to a `.generated/` subdirectory. Entry point files are optional and only created when `--with-entrypoint` is passed.
 
 ### Entry Point File
 
-The CLI creates an entry point file in the same directory as the config files (not inside `.generated/`) the first time it runs. This file re-exports from the generated route handler so Next.js can discover it:
+When `--with-entrypoint` is used, the CLI creates an entry point file in the same directory as the config files (not inside `.generated/`). This file re-exports from the generated route handler so Next.js can discover it:
 
 - **App Router**: `route.ts` containing `export * from "./.generated/route";`
 - **Pages Router**: `index.ts` containing `export { default } from "./.generated/route";`
@@ -627,7 +634,7 @@ app/
       [postId]/
         route.get.config.ts        # Your config (you write this)
         route.post.config.ts       # Your config (you write this)
-        route.ts                   # Entry point (auto-created if missing)
+        route.ts                   # Entry point (optional; use --with-entrypoint)
         .generated/                # Auto-generated (do not edit)
           route.ts                 #   Next.js route handler (named exports)
           client.ts                #   RouteClient class
@@ -652,7 +659,7 @@ pages/
       [userId]/
         route.get.config.ts        # Your config (you write this)
         route.post.config.ts       # Your config (you write this)
-        index.ts                   # Entry point (auto-created if missing)
+        index.ts                   # Entry point (optional; use --with-entrypoint)
         .generated/                # Auto-generated (do not edit)
           route.ts                 #   API route handler (default export)
           client.ts                #   RouteClient class

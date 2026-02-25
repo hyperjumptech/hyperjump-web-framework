@@ -10,7 +10,11 @@ This directory contains auto-generated TypeScript/React code for the **GET, POST
 
 ### `route.ts`
 
-Next.js App Router route handler. Exports a named handler for each HTTP method (GET, POST) that validates incoming requests, delegates to your `route.[method].config.ts` handler, and returns a validated JSON response.
+Next.js App Router route handler. Exports a named handler for each HTTP method (GET, POST) that validates incoming requests, delegates to your `route.[method].config.ts` handler, and returns a validated JSON response. Use this to create a route handler or an API end point. For example, create `app/api/posts/[postId]/route.ts` file and add the following content:
+
+```ts
+export * from "./.generated/route";
+```
 
 ### `client.ts`
 
