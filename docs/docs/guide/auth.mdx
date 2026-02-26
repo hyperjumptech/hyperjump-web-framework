@@ -144,14 +144,14 @@ Or in any server-side functions:
 ```ts title="server-function.ts" lineNumbers
 "use server";
 import { getUser } from "./lib/user";
-import { errorResponse } from "@hyperjumptech/route-action-gen/lib";
+import { errorResponse, successResponse } from "route-action-gen/lib";
 
 export const handler = async () => {
   const user = await getUser();
   if (!user) {
-    return errorResponse(401, "Unauthorized");
+    return errorResponse("Unauthorized", undefined, 401);
   }
-  return successResponse(200, { message: "Hello {user?.name}" });
+  return successResponse({ message: `Hello ${user.name}` });
 };
 ```
 
@@ -177,10 +177,10 @@ Then we can use this function in any server-side functions:
 
 ```ts title="server-function.ts" lineNumbers
 import { withUser } from "./lib/user";
-import { errorResponse } from "@hyperjumptech/route-action-gen/lib";
+import { successResponse } from "route-action-gen/lib";
 
 const handler = async (user: User) => {
-  return successResponse(200, { message: `Hello ${user.name}` });
+  return successResponse({ message: `Hello ${user.name}` });
 };
 
 export const handler = withUser(handler);
@@ -251,7 +251,7 @@ const isLoggedIn = async () => {
 };
 
 export const withOptimisticCheck = (
-  Component: React.ComponentType<{ isLoggedIn: boolean }>
+  Component: React.ComponentType<{ isLoggedIn: boolean }>,
 ) => {
   const WithOptimisticCheck = (props: T) => {
     const isLoggedIn = await isLoggedIn();

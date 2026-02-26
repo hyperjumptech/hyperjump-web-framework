@@ -220,7 +220,7 @@ const useToggleFavorite = (postId: string, isFavorite: boolean) => {
     isFavorite,
     (_currentState, _: void) => {
       return !_currentState;
-    }
+    },
   );
 
   const handleToggle = async () => {
@@ -252,7 +252,7 @@ export const ToggleFavorite = ({
 }) => {
   const { handleToggle, currentFavorite } = useToggleFavorite(
     postId,
-    isFavorite
+    isFavorite,
   );
   return (
     <div>
@@ -402,17 +402,36 @@ const Component = () => {
 };
 ```
 
-## Generating code
+## Generating code with route-action-gen
 
-In Hyperjump, we don't write the server function and server action code manually. Instead, we write the `route.post.config.ts` file to configure the server action. Then we use the `route-action-gen` command to generate the server function and server action code.
+In Hyperjump, we also generate server-function and form-action wrappers from route configs.
 
-For example, the following is the `/api/login/route.post.config.ts` file to handle the login form submission:
+For body methods (`post`, `put`, `patch`) in App Router, you define `route.[method].config.ts`, then run:
+
+```bash
+npx route-action-gen
+```
+
+If you also want route entrypoint files created automatically, run:
+
+```bash
+npx route-action-gen --with-entrypoint
+```
+
+### Example config
 
 ```tsx title="app/api/login/route.post.config.ts" lineNumbers
 import { z } from "zod";
+import {
+  createRequestValidator,
+  type AuthFunc,
+  type HandlerFunc,
+  successResponse,
+  errorResponse,
+} from "route-action-gen/lib";
 
-const auth: AuthFunc<User> = async (request: Request) => {
-  const user = await getUser(request);
+const auth: AuthFunc<{ id: string }> = async () => {
+  const user = await getUser();
   if (!user) throw new Error("Unauthorized");
   return user;
 };
@@ -431,168 +450,100 @@ export const responseValidator = z.object({
 
 export const handler: HandlerFunc<
   typeof requestValidator,
-  typeof responseValidator
+  typeof responseValidator,
+  undefined
 > = async (data) => {
-  const { body } = data;
   const user = await db.user.findUnique({
-    where: { email: body.email },
+    where: { email: data.body.email },
   });
-  if (!user) {
-    return errorResponse(401, "Invalid credentials");
+
+  if (!user || user.password !== data.body.password) {
+    return errorResponse("Invalid credentials", undefined, 401);
   }
-  if (user.password !== body.password) {
-    return errorResponse(401, "Invalid credentials");
-  }
-  return successResponse(200, { ok: true });
+
+  return successResponse({ ok: true });
 };
 ```
 
-Upon running the `route-action-gen --server-function` command, it will generate two server function related files:
+### Generated files for this route (App Router)
 
-- `app/api/login/server-function.ts`
-- `app/api/login/use-server-function.ts`
+- `.generated/route.ts`
+- `.generated/client.ts`
+- `.generated/use-route-post.tsx`
+- `.generated/server.function.ts`
+- `.generated/form.action.ts`
+- `.generated/use-server-function.tsx`
+- `.generated/use-form-action.tsx`
+- `.generated/form-components.tsx` (when body/params fields exist)
 
-The `server-function.ts` file contains two exported functions:
+### Using generated server-function hook
 
-- `serverFunction`: the server function that can be called directly from the client component.
-- `serverAction`: the server action that can be used with the `useResettableActionState` hook.
-
-Both functions perform the exactly same thing, except that the `serverAction` function accepts two arguments: the previous state and the form data. While the `serverFunction` function accepts only one argument: the data that was sent from the client.
-
-Just like the generated route handler, the generated server function and server action also checks if the request is authenticated and validates the request data before executing the handler function.
-
-### Generated server-function.ts
-
-Given the above `route.post.config.ts` file, the generated `server-function.ts` file will look like this:
-
-```tsx title="app/api/login/server-function.ts" lineNumbers
-import {
-  handler,
-  requestValidator,
-  responseValidator,
-} from "./route.post.config";
-import {
-  getBodyFromRequest,
-  errorResponse,
-  successResponse,
-} from "@hyperjumptech/route-action-gen/lib";
-import { z } from "zod";
-
-export const serverFunction = async (
-  data: ExtractValidatorData<typeof requestValidator>["body"]
-) => {
-  let user: Awaited<ReturnType<typeof auth>> | null = null;
-  if (requestValidator.user) {
-    try {
-      user = await requestValidator.user(request);
-    } catch (error) {
-      return errorResponse(401, "Unauthorized");
-    }
-  }
-  const validatedBody = requestValidator.body.parse(data);
-  return await handler({ body: validatedBody, user: user });
-};
-
-export const serverAction = async (previousState: any, formData: FormData) => {
-  let user: Awaited<ReturnType<typeof auth>> | null = null;
-  if (requestValidator.user) {
-    try {
-      user = await requestValidator.user(request);
-    } catch (error) {
-      return errorResponse(401, "Unauthorized");
-    }
-  }
-  const body = await getBodyFromRequest(formData);
-  const validatedBody = requestValidator.body.parse(body);
-  return await handler({ body: validatedBody, user: user });
-};
-```
-
-### Generated use-server-function.ts
-
-Given the above `route.post.config.ts` file, the generated `use-server-function.ts` file will look like this:
-
-```tsx title="app/api/login/use-server-function.ts" lineNumbers
-import { serverFunction, serverAction } from "./server-function";
-import { useState, useTransition } from "react";
-import { useResettableActionState } from "@nicnocquee/use-resettable-action-state";
-
-export const useServerFunction = () => {
-  const [data, setData] = useState<z.infer<typeof responseValidator> | null>(
-    null
-  );
-  const [error, setError] = useState<Error | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const fetchData = async (
-    data: ExtractValidatorData<typeof requestValidator>["body"]
-  ) => {
-    startTransition(async () => {
-      const result = await serverFunction(data);
-      if (result.status === false) {
-        setError(result.error);
-      } else {
-        setData(result.data);
-      }
-    });
-  };
-
-  return { data, error, pending, fetchData };
-};
-```
-
-Which you can use like this in the client component:
-
-```tsx title="component.tsx" lineNumbers
+```tsx title="app/api/login/login.client.tsx" lineNumbers
 "use client";
-import { useServerFunction } from "./use-server-function";
 
-const Component = () => {
+import { useServerFunction } from "./.generated/use-server-function";
+
+export const LoginButton = () => {
   const { data, error, pending, fetchData } = useServerFunction();
+
   return (
-    <div>
-      <p>{data?.message}</p>
-      <button
-        disabled={pending}
-        onClick={() => fetchData({ username: "John Doe" })}
-      >
-        Submit
-      </button>
-    </div>
+    <button
+      disabled={pending}
+      onClick={() =>
+        fetchData({
+          body: { email: "user@example.com", password: "password123" },
+        })
+      }
+    >
+      {pending
+        ? "Loading..."
+        : data?.ok
+          ? "Logged in"
+          : error
+            ? "Retry"
+            : "Login"}
+    </button>
   );
 };
 ```
 
-For using the generated server action in the form in the client component, you can use the `useResettableActionState` hook like this:
+### Using generated form-action hook
 
-```tsx title="component.tsx" lineNumbers
+`useFormAction` wraps React `useActionState` and provides a `<FormWithAction>` helper.
+
+```tsx title="app/api/login/form.client.tsx" lineNumbers
 "use client";
-import { useResettableActionState } from "@nicnocquee/use-resettable-action-state";
-import { serverAction } from "./server-action";
-import { toast } from "sonner";
 
-const Component = () => {
-  const [state, action, pending] = useResettableActionState(serverAction, null);
-  if (!pending && state?.error) {
-    toast.error(state.error);
-  }
+import { useFormAction } from "./.generated/use-form-action";
+
+export const LoginForm = () => {
+  const { FormWithAction, state, pending } = useFormAction();
+
   return (
-    <form action={action}>
-      <input type="text" name="username" />
-      <button type="submit">Submit</button>
-    </form>
+    <FormWithAction>
+      <input name="body.email" type="email" />
+      <input name="body.password" type="password" />
+      <button type="submit" disabled={pending}>
+        {pending ? "Submitting..." : "Submit"}
+      </button>
+      {!pending && state?.status === false ? <p>{state.message}</p> : null}
+    </FormWithAction>
   );
 };
 ```
 
 ## Security
 
-Server function and server action are basically a public end point that can be called from the client component. As such, you should always authorize and validate the data that is sent from the client to prevent unauthorized access and data manipulation. When using `route-action-gen`, you have to **always** include the user function in the request validator to authorize the request.
+Server functions and form actions are still callable server endpoints. Always:
+
+- validate input with `createRequestValidator`
+- authorize with `requestValidator.user` when the operation is protected
+- return explicit domain errors from your `handler`
 
 ## Ground Rules
 
-|     | Action                                                                                                                  |
-| --- | ----------------------------------------------------------------------------------------------------------------------- |
-| ✅  | Never write the server function and/or server action code manually. Always use `route-action-gen` to generate the code. |
-| ✅  | Use the generated custom hooks to call the end point from a client component in the Next.js app.                        |
-| ✅  | Understand when not to use server function and use route handler instead.                                               |
+|     | Action                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------------ |
+| ✅  | Never hand-write generated files in `.generated/`; regenerate from config.                             |
+| ✅  | Use generated hooks (`useServerFunction`, `useFormAction`, `useRoute*`) in client components.          |
+| ✅  | Use route handlers only when HTTP semantics are required; otherwise prefer Server Functions / Actions. |
