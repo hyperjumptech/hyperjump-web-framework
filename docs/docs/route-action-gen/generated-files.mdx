@@ -2,7 +2,7 @@
 title: Generated Files
 ---
 
-When you run `npx route-action-gen`, the CLI generates files in a `.generated/` directory and creates an entry point file in the config directory if one does not exist.
+When you run `npx route-action-gen`, the CLI generates files in a `.generated/` directory. Entry point files (`route.ts` / `index.ts`) are only created when you pass `--with-entrypoint`.
 
 - **App Router**: generated files are placed in `.generated/` inside the config directory (e.g. `app/api/posts/.generated/`).
 - **Pages Router**: generated files are placed at the project root under `.generated/` in a mirror of the config path (e.g. `.generated/pages/api/users/`). This prevents Next.js from treating them as API routes.
@@ -11,7 +11,7 @@ The set of generated files depends on the framework and the HTTP methods defined
 
 ## App Router
 
-For the Next.js App Router, the entry point file is `route.ts`:
+For the Next.js App Router, the entry point file is `route.ts` (created when `--with-entrypoint` is used, or manually):
 
 ```ts title="app/api/posts/[postId]/route.ts"
 export * from "./.generated/route";
@@ -21,12 +21,12 @@ export * from "./.generated/route";
 
 These files are always generated regardless of the HTTP method:
 
-| File                     | Description                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `route.ts`               | The Next.js route handler. Exports named functions (`GET`, `POST`, etc.) for each method defined in the config files.                       |
-| `client.ts`              | A `RouteClient` class with typed methods for each HTTP method. Use this from non-React apps or scripts.                                     |
-| `use-route-[method].tsx` | A React hook for each HTTP method (e.g. `use-route-get.tsx`, `use-route-post.tsx`). Provides `data`, `error`, `isLoading`, and `fetchData`. |
-| `README.md`              | Documentation for the generated files.                                                                                                      |
+| File                     | Description                                                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `route.ts`               | The Next.js route handler. Exports named functions (`GET`, `POST`, etc.) for each method defined in the config files.                                                            |
+| `client.ts`              | A `RouteClient` class with typed methods for each HTTP method. Use this from non-React apps or scripts.                                                                          |
+| `use-route-[method].tsx` | A React hook for each HTTP method (e.g. `use-route-get.tsx`, `use-route-post.tsx`). GET hooks return `cancel`, `refetch`, and `lastFetchedAt`; non-GET hooks return `fetchData`. |
+| `README.md`              | Documentation for the generated files.                                                                                                                                           |
 
 ### Files generated for body methods only
 
@@ -68,7 +68,7 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
 
 ## Pages Router
 
-For the Next.js Pages Router, the entry point file is `index.ts`. The import path points to the project-root `.generated/` mirror:
+For the Next.js Pages Router, the entry point file is `index.ts` (created when `--with-entrypoint` is used, or manually). The import path points to the project-root `.generated/` mirror:
 
 ```ts title="pages/api/users/index.ts"
 export { default } from "../../../.generated/pages/api/users/route";
@@ -137,14 +137,16 @@ The generated `route.ts` handles request parsing, validation, auth, and error ha
 
 ### React hooks
 
-Each `use-route-[method].tsx` exports a hook (e.g. `useRouteGet`, `useRoutePost`) that returns:
+`use-route-get.tsx` exports `useRouteGet`, which auto-fetches and returns:
 
-| Property    | Type                                        | Description                                                                            |
-| ----------- | ------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `data`      | `z.infer<typeof responseValidator> \| null` | The validated response data, or `null` before the first call.                          |
-| `error`     | `Error \| null`                             | Any error that occurred during the request.                                            |
-| `isLoading` | `boolean`                                   | Whether the request is in flight.                                                      |
-| `fetchData` | `(input) => Promise<void>`                  | Triggers the request with typed input (body, params, searchParams, headers as needed). |
+| Property        | Type                                        | Description                                                              |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------------ |
+| `data`          | `z.infer<typeof responseValidator> \| null` | The validated response data, or `null` before the first successful call. |
+| `error`         | `string \| null`                            | Error message from timeout, abort, or failed request.                    |
+| `isLoading`     | `boolean`                                   | Whether the request is in flight.                                        |
+| `cancel`        | `() => void`                                | Aborts the in-flight request (if any).                                   |
+| `refetch`       | `() => void`                                | Triggers a fresh fetch with the same input.                              |
+| `lastFetchedAt` | `number \| null`                            | Last refetch trigger timestamp used to drive re-fetching.                |
 
 ```tsx title="app/posts/page.tsx" lineNumbers
 "use client";
@@ -152,20 +154,22 @@ Each `use-route-[method].tsx` exports a hook (e.g. `useRouteGet`, `useRoutePost`
 import { useRouteGet } from "../api/posts/[postId]/.generated/use-route-get";
 
 export default function PostPage() {
-  const { data, error, isLoading, fetchData } = useRouteGet();
+  const { data, error, isLoading, refetch } = useRouteGet({
+    params: { postId: "1" },
+  });
 
   return (
     <div>
       {isLoading && <div>Loading...</div>}
-      {error && <div>{error.message}</div>}
+      {error && <div>{error}</div>}
       {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-      <button onClick={() => fetchData({ params: { postId: "1" } })}>
-        Fetch Post
-      </button>
+      <button onClick={refetch}>Refetch Post</button>
     </div>
   );
 }
 ```
+
+For non-GET methods (`useRoutePost`, `useRoutePut`, `useRoutePatch`, `useRouteDelete`, etc.), the hook returns `data`, `error`, `isLoading`, and `fetchData`.
 
 ### Client class
 
@@ -185,7 +189,7 @@ The generated `server.function.ts` exports a function marked with `"use server"`
 ```tsx lineNumbers
 import { useServerFunction } from "../api/posts/[postId]/.generated/use-server-function";
 
-const { data, error, isPending, execute } = useServerFunction();
+const { data, error, pending, fetchData } = useServerFunction();
 ```
 
 ### Form action
@@ -195,13 +199,16 @@ The generated `form.action.ts` works with React's form action pattern. Use it wi
 ```tsx lineNumbers
 import { useFormAction } from "../api/posts/[postId]/.generated/use-form-action";
 
-const { state, formAction, isPending } = useFormAction();
+const { FormWithAction, state, pending } = useFormAction();
 ```
 
 Or use the auto-generated form components:
 
 ```tsx lineNumbers
-import { PostForm } from "../api/posts/[postId]/.generated/form-components";
+import { formComponents } from "../api/posts/[postId]/.generated/form-components";
+
+const TitleInput = formComponents["body.title"].input;
+const TitleLabel = formComponents["body.title"].label;
 ```
 
 ## Ignoring generated files

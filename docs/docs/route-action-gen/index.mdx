@@ -32,7 +32,7 @@ Route Action Gen lets you focus on the main logic. You declare validators and a 
 1. You create a `route.[method].config.ts` file in the directory where the route lives.
 2. You define a `requestValidator`, a `responseValidator`, and a `handler` function in that config file.
 3. You run `npx route-action-gen` and the CLI scans for all config files, then generates code in a `.generated/` directory.
-4. An entry point file (`route.ts` for App Router, `index.ts` for Pages Router) is created automatically if it does not exist. It re-exports from `.generated/`.
+4. (Optional) pass `--with-entrypoint` to create an entry point file (`route.ts` for App Router, `index.ts` for Pages Router) if it does not exist. It re-exports from `.generated/`.
 
 For App Router, generated files live in `.generated/` inside the config directory (e.g. `app/api/posts/.generated/`). For Pages Router, generated files are placed at the project root under `.generated/` in a mirror of the config path (e.g. `.generated/pages/api/users/`). This keeps them outside of `pages/` so Next.js does not treat them as API routes.
 

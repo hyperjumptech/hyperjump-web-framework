@@ -131,6 +131,12 @@ npx route-action-gen
 
 The CLI scans the current directory (recursively) for all `route.[method].config.ts` files and generates code in a `.generated/` directory. For App Router, this is inside the config directory. For Pages Router, it is at the project root (see [Generated Files](./generated-files.mdx)).
 
+If you also want the route entry point created automatically, run:
+
+```bash
+npx route-action-gen --with-entrypoint
+```
+
 For the POST example above, the following files are generated:
 
 import { File, Folder, Files } from "fumadocs-ui/components/files";
@@ -138,7 +144,7 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
 <Files>
   <Folder name="app/api/posts/[postId]" defaultOpen>
     <File name="route.post.config.ts" />
-    <File name="route.ts" />
+    <File name="route.ts (optional entry point)" />
     <Folder name=".generated" defaultOpen>
       <File name="route.ts" />
       <File name="client.ts" />
@@ -153,7 +159,7 @@ import { File, Folder, Files } from "fumadocs-ui/components/files";
   </Folder>
 </Files>
 
-The `route.ts` entry point is created automatically with the following content:
+When generated with `--with-entrypoint`, the `route.ts` entry point contains:
 
 ```ts title="app/api/posts/[postId]/route.ts"
 export * from "./.generated/route";

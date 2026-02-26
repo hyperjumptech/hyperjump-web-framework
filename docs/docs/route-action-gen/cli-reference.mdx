@@ -14,11 +14,12 @@ npx route-action-gen [options]
 
 ### Options
 
-| Option               | Short | Default | Description                                            |
-| -------------------- | ----- | ------- | ------------------------------------------------------ |
-| `--framework <name>` | `-f`  | `auto`  | Framework target. See [Frameworks](#frameworks) below. |
-| `--help`             | `-h`  |         | Show help message.                                     |
-| `--version`          | `-v`  |         | Show version number.                                   |
+| Option               | Short | Default | Description                                                       |
+| -------------------- | ----- | ------- | ----------------------------------------------------------------- |
+| `--framework <name>` | `-f`  | `auto`  | Framework target. See [Frameworks](#frameworks) below.            |
+| `--with-entrypoint`  |       | `false` | Create missing route entry-point files (`route.ts` / `index.ts`). |
+| `--help`             | `-h`  |         | Show help message.                                                |
+| `--version`          | `-v`  |         | Show version number.                                              |
 
 ### Behavior
 
@@ -27,7 +28,7 @@ npx route-action-gen [options]
 3. **Parse**: extracts metadata from each config file (validators, fields, auth).
 4. **Generate**: uses the appropriate framework templates to produce output files.
 5. **Write**: writes generated files into `.generated/`. For App Router, this is inside the config directory. For Pages Router, it is at the project root under `.generated/pages/api/...` to keep them outside the `pages/` tree.
-6. **Entry point**: creates `route.ts` (App Router) or `index.ts` (Pages Router) in the config directory if it does not already exist.
+6. **Entry point (optional)**: when `--with-entrypoint` is passed, creates `route.ts` (App Router) or `index.ts` (Pages Router) in the config directory if it does not already exist.
 
 If no config files are found, the CLI exits with an error message.
 
