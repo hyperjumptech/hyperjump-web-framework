@@ -87,9 +87,14 @@ export interface FrameworkGenerator {
   name: string;
   /**
    * Compute the route path from a config file's absolute directory path.
-   * e.g. "/abs/path/app/api/posts/[postId]" -> "/api/posts/[postId]"
+   * When projectRoot is provided (e.g. from findProjectRoot), the route path
+   * is relative to projectRoot/app (or projectRoot/pages). Otherwise falls back
+   * to path heuristics. e.g. "/abs/path/app/api/posts/[postId]" -> "/api/posts/[postId]"
+   *
+   * @param directory - Absolute path to the config directory.
+   * @param projectRoot - Optional directory containing package.json; when set, route path is derived from it.
    */
-  resolveRoutePath(directory: string): string;
+  resolveRoutePath(directory: string, projectRoot?: string | null): string;
   /**
    * Resolve the absolute path of the generated output directory.
    *

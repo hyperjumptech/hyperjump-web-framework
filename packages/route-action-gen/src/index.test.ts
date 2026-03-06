@@ -446,6 +446,38 @@ describe("NextAppRouterGenerator", () => {
         generator.resolveRoutePath("/project/apps/web/app/api/users"),
       ).toBe("/api/users");
     });
+
+    it("uses projectRoot when path contains /app/ more than once (Docker or monorepo)", () => {
+      // Act
+      const result = generator.resolveRoutePath(
+        "/app/apps/hermes/app/dashboard/tickers/actions/import",
+        "/app/apps/hermes",
+      );
+
+      // Assert: route path is relative to projectRoot/app, not the first /app/
+      expect(result).toBe("/dashboard/tickers/actions/import");
+    });
+
+    it("falls back to lastIndexOf when projectRoot is not provided", () => {
+      // Act: same path as above but no projectRoot
+      const result = generator.resolveRoutePath(
+        "/app/apps/hermes/app/dashboard/tickers/actions/import",
+      );
+
+      // Assert: fallback uses last /app/ so we still get the Next.js route path
+      expect(result).toBe("/dashboard/tickers/actions/import");
+    });
+
+    it("uses projectRoot with src/app when Next.js project uses src directory", () => {
+      // Act
+      const result = generator.resolveRoutePath(
+        "/project/src/app/api/users",
+        "/project",
+      );
+
+      // Assert: route path is relative to projectRoot/src/app
+      expect(result).toBe("/api/users");
+    });
   });
 
   describe("generate", () => {
@@ -704,6 +736,17 @@ describe("NextPagesRouterGenerator", () => {
       expect(generator.resolveRoutePath("/project/src/pages/api/users")).toBe(
         "/api/users",
       );
+    });
+
+    it("uses projectRoot with src/pages when Next.js project uses src directory", () => {
+      // Act
+      const result = generator.resolveRoutePath(
+        "/project/src/pages/api/users",
+        "/project",
+      );
+
+      // Assert: route path is relative to projectRoot/src/pages
+      expect(result).toBe("/api/users");
     });
   });
 

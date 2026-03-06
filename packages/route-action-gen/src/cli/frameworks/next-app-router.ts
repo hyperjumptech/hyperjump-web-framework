@@ -59,13 +59,30 @@ export class NextAppRouterGenerator implements FrameworkGenerator {
     };
   }
 
-  resolveRoutePath(directory: string): string {
-    // Find the 'app/' segment in the path and use everything after it
-    const appIndex = directory.indexOf("/app/");
+  resolveRoutePath(directory: string, projectRoot?: string | null): string {
+    if (projectRoot) {
+      const normalizedDir = path.resolve(directory);
+      // Next.js supports both app/ and src/app/ at project root
+      const appDirCandidates = [
+        path.join(projectRoot, "app"),
+        path.join(projectRoot, "src", "app"),
+      ];
+      for (const appDir of appDirCandidates) {
+        const normalizedAppDir = path.resolve(appDir);
+        if (
+          normalizedDir === normalizedAppDir ||
+          normalizedDir.startsWith(normalizedAppDir + path.sep)
+        ) {
+          const relative = path.relative(normalizedAppDir, normalizedDir);
+          return "/" + relative.split(path.sep).join("/");
+        }
+      }
+    }
+    // Fallback: use the last 'app/' segment so Docker WORKDIR /app or parent /app/ still work
+    const appIndex = directory.lastIndexOf("/app/");
     if (appIndex !== -1) {
       return directory.slice(appIndex + "/app".length);
     }
-    // Fallback: use the last path segment
     const parts = directory.split("/");
     return "/" + parts[parts.length - 1];
   }

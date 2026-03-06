@@ -25,6 +25,7 @@ import {
 } from "./frameworks/index.js";
 import type { CliDeps, GenerationContext, HttpMethod } from "./types.js";
 import { createConfigFile, isValidMethod } from "./create.js";
+import { findProjectRoot } from "./find-project-root.js";
 
 // Re-export modules for testing
 export { scanConfigFiles } from "./scanner.js";
@@ -252,8 +253,9 @@ export function generate(
       return parseConfigFile(content, scanned.method, scanned.fileName);
     });
 
-    // Compute the route path using the framework generator
-    const routePath = generator.resolveRoutePath(group.directory);
+    // Compute the route path using the framework generator (project root from package.json when available)
+    const projectRoot = findProjectRoot(group.directory, deps.existsSync);
+    const routePath = generator.resolveRoutePath(group.directory, projectRoot);
 
     // Resolve the generated output directory (may differ from config dir)
     const generatedDir = generator.resolveGeneratedDir(group.directory, cwd);
