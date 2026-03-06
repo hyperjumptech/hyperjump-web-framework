@@ -60,13 +60,30 @@ export class NextPagesRouterGenerator implements FrameworkGenerator {
     };
   }
 
-  resolveRoutePath(directory: string): string {
-    // Find the 'pages/' segment in the path and use everything after it
-    const pagesIndex = directory.indexOf("/pages/");
+  resolveRoutePath(directory: string, projectRoot?: string | null): string {
+    if (projectRoot) {
+      const normalizedDir = path.resolve(directory);
+      // Next.js supports both pages/ and src/pages/ at project root
+      const pagesDirCandidates = [
+        path.join(projectRoot, "pages"),
+        path.join(projectRoot, "src", "pages"),
+      ];
+      for (const pagesDir of pagesDirCandidates) {
+        const normalizedPagesDir = path.resolve(pagesDir);
+        if (
+          normalizedDir === normalizedPagesDir ||
+          normalizedDir.startsWith(normalizedPagesDir + path.sep)
+        ) {
+          const relative = path.relative(normalizedPagesDir, normalizedDir);
+          return "/" + relative.split(path.sep).join("/");
+        }
+      }
+    }
+    // Fallback: use the last 'pages/' segment for consistency with app router
+    const pagesIndex = directory.lastIndexOf("/pages/");
     if (pagesIndex !== -1) {
       return directory.slice(pagesIndex + "/pages".length);
     }
-    // Fallback: use the last path segment
     const parts = directory.split("/");
     return "/" + parts[parts.length - 1];
   }
